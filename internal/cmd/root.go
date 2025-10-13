@@ -43,6 +43,7 @@ func Execute() error {
 
 	cmd.AddCommand(
 		newCmdList(),
+		newCmdReport(),
 		newCmdVersion(),
 	)
 
