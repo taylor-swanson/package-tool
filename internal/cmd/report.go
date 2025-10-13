@@ -53,10 +53,10 @@ func newCmdReport() *cobra.Command {
 	return cmd
 }
 
-func printReportUsage() {
+func printReporters() {
 	_, _ = fmt.Fprintln(os.Stderr, "Please provide one of the following reporters:")
 	_, _ = fmt.Fprintln(os.Stderr, "")
-	tw := tabwriter.NewWriter(os.Stderr, 0, 2, 2, ' ', 0)
+	tw := tabwriter.NewWriter(os.Stderr, 0, 2, 3, ' ', 0)
 	for _, r := range reporters {
 		_, _ = fmt.Fprintf(tw, "%s\t%s\n", r.Name, r.Description)
 	}
@@ -66,13 +66,13 @@ func printReportUsage() {
 
 func doReport(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
-		printReportUsage()
+		printReporters()
 		return errors.New("no reporter specified")
 	}
 
 	reporter, ok := getReporter(args[0])
 	if !ok {
-		printReportUsage()
+		printReporters()
 		return fmt.Errorf("invalid reporter: %s", args[0])
 	}
 
@@ -91,7 +91,7 @@ func doReport(cmd *cobra.Command, args []string) error {
 
 		result, err := reporter.Run(pkg)
 		if err != nil {
-			slog.Error("Failed to run analyzer", slog.String("package", pkg.Manifest.Name), slog.String("reporter", reporter.Name), slog.String("error", err.Error()))
+			slog.Error("Failed to run reporter", slog.String("package", pkg.Manifest.Name), slog.String("reporter", reporter.Name), slog.String("error", err.Error()))
 			continue
 		}
 		results[pkg.Manifest.Name] = result
