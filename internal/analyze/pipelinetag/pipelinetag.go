@@ -11,20 +11,90 @@ import (
 	"github.com/goccy/go-yaml/parser"
 	"github.com/goccy/go-yaml/printer"
 
-	"package-tool/internal/modify"
+	"package-tool/internal/analyze"
 	"package-tool/internal/yamledit"
 )
 
 const Name = "pipeline-tag"
 
-var Modifier = &modify.Modifier{
+var Analyzer = &analyze.Analyzer{
 	Name:        Name,
-	Description: "Fix ingest pipeline tag issues",
+	Description: "Find and fix ingest pipeline tag issues",
+	CanFix:      true,
 	Run:         run,
 }
 
-func run(pkg *fleetpkg.Integration) error {
-	for _, ds := range pkg.DataStreams {
+func run(ctx *analyze.Context) (analyze.Result, error) {
+	var result analyze.Result
+
+	if err := doCheck(ctx, &result); err != nil {
+		return result, err
+	}
+
+	if ctx.Fix && len(result.Issues) > 0 {
+		if err := doFix(ctx, &result); err != nil {
+			return result, err
+		}
+	}
+
+	return result, nil
+}
+
+func doCheck(ctx *analyze.Context, result *analyze.Result) error {
+	for _, ds := range ctx.Package.DataStreams {
+		for _, pipeline := range ds.Pipelines {
+			type ProcessorInfo struct {
+				Index     int
+				Processor *fleetpkg.Processor
+			}
+
+			seen := map[string]ProcessorInfo{}
+
+			for i, proc := range pipeline.Processors {
+				raw, ok := proc.Attributes["tag"]
+				if !ok {
+					result.Issues = append(result.Issues, analyze.Issue{
+						Pos:      analyze.NewPos(proc.FileMetadata),
+						Category: Name,
+						Message:  fmt.Sprintf("Missing tag on %s processor at index %d", proc.Type, i),
+					})
+					continue
+				}
+				tag, ok := raw.(string)
+				if !ok {
+					result.Issues = append(result.Issues, analyze.Issue{
+						Pos:      analyze.NewPos(proc.FileMetadata),
+						Category: Name,
+						Message:  fmt.Sprintf("Invalid tag type (got: %T want: string) on %s processor at index %d", raw, proc.Type, i),
+					})
+					continue
+				}
+
+				if other, dup := seen[tag]; dup {
+					result.Issues = append(result.Issues, analyze.Issue{
+						Pos:      analyze.NewPos(proc.FileMetadata),
+						Category: Name,
+						Message:  fmt.Sprintf("Duplicate tag %q on %s processor index %d", tag, proc.Type, i),
+						Related: []analyze.Related{{
+							Pos:     analyze.NewPos(other.Processor.FileMetadata),
+							Message: fmt.Sprintf("Processor first seen at index %d", other.Index),
+						}},
+					})
+				}
+
+				seen[tag] = ProcessorInfo{
+					Index:     i,
+					Processor: proc,
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func doFix(ctx *analyze.Context, result *analyze.Result) error {
+	for _, ds := range ctx.Package.DataStreams {
 		for _, pipeline := range ds.Pipelines {
 			f, err := parser.ParseFile(pipeline.Path(), parser.ParseComments)
 			if err != nil {

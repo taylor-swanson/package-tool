@@ -8,20 +8,28 @@ import (
 
 	"github.com/andrewkroh/go-fleetpkg"
 
-	"package-tool/internal/report"
+	"package-tool/internal/analyze"
 )
 
 const Name = "duplicate-processor"
 
-var Reporter = &report.Reporter{
+var Analyzer = &analyze.Analyzer{
 	Name:        Name,
-	Description: "Check for duplicated processors in pipelines",
+	Description: "Find processors duplicated in ingest pipelines",
 	Run:         run,
 }
 
-func run(pkg *fleetpkg.Integration) (report.Result, error) {
-	var result report.Result
+func run(ctx *analyze.Context) (analyze.Result, error) {
+	var result analyze.Result
 
+	if err := doCheck(ctx, &result); err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 	type ProcessorInfo struct {
 		Hash      uint64
 		Processor *fleetpkg.Processor
@@ -29,7 +37,7 @@ func run(pkg *fleetpkg.Integration) (report.Result, error) {
 		Index     int
 	}
 
-	for dsName, ds := range pkg.DataStreams {
+	for dsName, ds := range ctx.Package.DataStreams {
 		seen := map[uint64]ProcessorInfo{}
 
 		var pipelines []fleetpkg.IngestPipeline
@@ -46,16 +54,16 @@ func run(pkg *fleetpkg.Integration) (report.Result, error) {
 
 				hash, err := generateProcessorHash(proc)
 				if err != nil {
-					return result, fmt.Errorf("unable to hash processor at index %d in pipeline %q: %w", i, pipeline.Path(), err)
+					return fmt.Errorf("unable to hash processor at index %d in pipeline %q: %w", i, pipeline.Path(), err)
 				}
 
 				if other, dup := seen[hash]; dup {
-					result.Issues = append(result.Issues, report.Diagnostic{
-						Pos:      report.NewPos(proc.FileMetadata),
+					result.Issues = append(result.Issues, analyze.Issue{
+						Pos:      analyze.NewPos(proc.FileMetadata),
 						Category: Name,
 						Message:  fmt.Sprintf("Processor %s in %s at index %d already exists in %s at index %d in data stream %s", proc.Type, filepath.Base(pipeline.Path()), i, other.Pipeline, other.Index, dsName),
-						Related: []report.Related{{
-							Pos:     report.NewPos(other.Processor.FileMetadata),
+						Related: []analyze.Related{{
+							Pos:     analyze.NewPos(other.Processor.FileMetadata),
 							Message: fmt.Sprintf("Processor first seen in %s at index %d", other.Pipeline, other.Index),
 						}},
 					})
@@ -72,7 +80,7 @@ func run(pkg *fleetpkg.Integration) (report.Result, error) {
 		}
 	}
 
-	return result, nil
+	return nil
 }
 
 func generateProcessorHash(proc *fleetpkg.Processor) (uint64, error) {

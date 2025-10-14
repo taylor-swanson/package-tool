@@ -1,4 +1,4 @@
-package report
+package analyze
 
 import (
 	"encoding/json"
@@ -7,21 +7,33 @@ import (
 	"github.com/andrewkroh/go-fleetpkg"
 )
 
-type Reporter struct {
+type Analyzer struct {
 	Name        string
 	Description string
-	Run         func(pkg *fleetpkg.Integration) (Result, error)
+	CanFix      bool
+	Run         func(ctx *Context) (Result, error)
+}
+
+type Context struct {
+	Package *fleetpkg.Integration
+	Fix     bool
 }
 
 type Result struct {
-	Issues []Diagnostic
+	Issues []Issue
+	Fixes  []Fix
 }
 
-type Diagnostic struct {
+type Issue struct {
 	Pos      Pos       `json:"pos"`
 	Category string    `json:"category"`
 	Message  string    `json:"message"`
 	Related  []Related `json:"related,omitempty"`
+}
+
+type Fix struct {
+	Category string `json:"category"`
+	Message  string `json:"message"`
 }
 
 type Related struct {

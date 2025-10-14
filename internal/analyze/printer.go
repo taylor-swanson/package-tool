@@ -1,4 +1,4 @@
-package report
+package analyze
 
 import (
 	"encoding/json"
@@ -102,6 +102,23 @@ func text(w io.Writer, results map[string]Result, wantColor bool) error {
 		} else {
 			if _, err = green.Fprintln(w, "    No issues"); err != nil {
 				return err
+			}
+		}
+
+		if len(result.Fixes) > 0 {
+			if _, err = bold.Fprintln(w, "  Fixes"); err != nil {
+				return err
+			}
+			for _, d := range result.Fixes {
+				if _, err = fmt.Fprint(w, "    - "); err != nil {
+					return err
+				}
+				if _, err = green.Fprintf(w, "%s", d.Message); err != nil {
+					return err
+				}
+				if _, err = fmt.Fprintf(w, " (%s)\n", d.Category); err != nil {
+					return err
+				}
 			}
 		}
 

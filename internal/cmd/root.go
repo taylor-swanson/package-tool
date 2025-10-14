@@ -36,15 +36,14 @@ func Execute() error {
 	cmd.PersistentFlags().Bool("debug", false, "enable debug logging")
 	cmd.PersistentFlags().Bool("json", false, "enable JSON logging")
 
-	cmd.PersistentFlags().Bool("deprecated", false, "Include deprecated packages")
-	cmd.PersistentFlags().String("filter-owner", "", "Filter by owner of the package")
-	cmd.PersistentFlags().String("filter-owner-type", "", "Filter by owner type of the package")
-	cmd.PersistentFlags().String("filter-type", "", "Filter by type of the package")
+	cmd.PersistentFlags().Bool("deprecated", false, "include deprecated packages")
+	cmd.PersistentFlags().String("filter-owner", "", "filter by owner of the package")
+	cmd.PersistentFlags().String("filter-owner-type", "", "filter by owner type of the package")
+	cmd.PersistentFlags().String("filter-type", "", "filter by type of the package")
 
 	cmd.AddCommand(
+		newCmdAnalyze(),
 		newCmdList(),
-		newCmdModify(),
-		newCmdReport(),
 		newCmdVersion(),
 	)
 
