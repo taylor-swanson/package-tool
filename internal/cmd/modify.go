@@ -12,11 +12,13 @@ import (
 
 	"package-tool/internal/modify"
 	"package-tool/internal/modify/pipelineerror"
+	"package-tool/internal/modify/pipelineeventoriginal"
 	"package-tool/internal/modify/pipelinetag"
 )
 
 var modifiers = []*modify.Modifier{
 	pipelineerror.Modifier,
+	pipelineeventoriginal.Modifier,
 	pipelinetag.Modifier,
 }
 
