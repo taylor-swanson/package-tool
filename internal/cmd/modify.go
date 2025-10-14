@@ -11,10 +11,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"package-tool/internal/modify"
+	"package-tool/internal/modify/pipelineerror"
 	"package-tool/internal/modify/pipelinetag"
 )
 
 var modifiers = []*modify.Modifier{
+	pipelineerror.Modifier,
 	pipelinetag.Modifier,
 }
 

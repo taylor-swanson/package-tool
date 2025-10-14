@@ -2,6 +2,7 @@ package yamledit
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/goccy/go-yaml"
@@ -34,6 +35,34 @@ func DeleteNode(f *ast.File, p *yaml.Path) error {
 		}
 	}
 	return nil
+}
+
+func RemoveNode(seq *ast.SequenceNode, index int) bool {
+	if index < 0 || index >= len(seq.Values) {
+		seq.Values = append(seq.Values[:index], seq.Values[index+1:]...)
+		seq.ValueHeadComments = append(seq.ValueHeadComments[:index], seq.ValueHeadComments[index+1:]...)
+
+		return true
+	}
+
+	return false
+}
+
+func AppendOrReplaceNode(seq *ast.SequenceNode, index int, node ast.Node) bool {
+	if index < 0 || index >= len(seq.Values) {
+		// Append
+		seq.Values = append(seq.Values, node)
+		seq.ValueHeadComments = append(seq.ValueHeadComments, node.GetComment())
+		return true
+	}
+	if !nodeEqual(seq.Values[index], node) {
+		// Replace
+		seq.Values[index] = node
+		seq.ValueHeadComments[index] = node.GetComment()
+		return true
+	}
+
+	return false
 }
 
 // SetString replaces the node at the specified path with a StringNode.
@@ -115,4 +144,16 @@ func cutPath(p *yaml.Path) (before *yaml.Path, after string, err error) {
 	}
 
 	return before, after, nil
+}
+
+func nodeEqual(a, b ast.Node) bool {
+	var x, y any
+	if err := yaml.NodeToValue(a, &x); err != nil {
+		panic(err)
+	}
+	if err := yaml.NodeToValue(b, &y); err != nil {
+		panic(err)
+	}
+
+	return reflect.DeepEqual(x, y)
 }
