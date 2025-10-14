@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"package-tool/internal/report"
+	"package-tool/internal/report/duplicateprocessor"
 	"package-tool/internal/report/pipelineerror"
 	"package-tool/internal/report/pipelinetag"
 )
@@ -29,6 +30,7 @@ var reportFormats = []string{
 }
 
 var reporters = []*report.Reporter{
+	duplicateprocessor.Reporter,
 	pipelineerror.Reporter,
 	pipelinetag.Reporter,
 }
