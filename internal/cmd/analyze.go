@@ -14,6 +14,7 @@ import (
 	"package-tool/internal/analyze"
 	"package-tool/internal/analyze/duplicateprocessor"
 	"package-tool/internal/analyze/pipelineerror"
+	"package-tool/internal/analyze/pipelineeventoriginal"
 	"package-tool/internal/analyze/pipelinetag"
 )
 
@@ -32,6 +33,7 @@ var analyzeFormats = []string{
 var analyzers = []*analyze.Analyzer{
 	duplicateprocessor.Analyzer,
 	pipelineerror.Analyzer,
+	pipelineeventoriginal.Analyzer,
 	pipelinetag.Analyzer,
 }
 

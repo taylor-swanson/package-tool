@@ -145,20 +145,14 @@ func doFix(ctx *analyze.Context, result *analyze.Result) error {
 
 				modified = true
 			} else {
-				// 1. Add append tags preserve_original_event to processors when error.message is set
-				appendPreserveOnFailureIndex := findAppendPreserveFailureProcessor(&pipeline)
-				if yamledit.AppendOrReplaceNode(onFailureNode, appendPreserveOnFailureIndex, newPipelineOnFailureAppendPreserveOriginalEvent()) {
-					modified = true
-				}
-
-				// 2. Check event.kind: pipeline_error
+				// 1. Check event.kind: pipeline_error
 				setEventKindIndex := findPipelineOnFailureSetEventKind(&pipeline)
 				if yamledit.AppendOrReplaceNode(onFailureNode, setEventKindIndex, newPipelineOnFailureSetEventKindNode()) {
 					fmt.Println("  Modified event.kind")
 					modified = true
 				}
 
-				// 3. Check error.message
+				// 2. Check error.message
 				errorMessageIndex, errorMessageType := findPipelineOnFailureSetErrorMessage(&pipeline)
 				if errorMessageType == "append" {
 					if yamledit.AppendOrReplaceNode(onFailureNode, errorMessageIndex, newPipelineOnFailureSetErrorMessageNode("append")) {
@@ -171,20 +165,6 @@ func doFix(ctx *analyze.Context, result *analyze.Result) error {
 						modified = true
 					}
 				}
-
-				// 4. Delete remove event.original if in processor list
-				if removeEventOriginalIndex := findRemoveEventOriginal(&pipeline); removeEventOriginalIndex != -1 {
-					if yamledit.RemoveNode(processorsNode, removeEventOriginalIndex) {
-						modified = true
-					}
-				}
-
-				// 5. Add append tags preserve_original_event to on_failure
-				appendPreserveIndex := findAppendPreserveProcessor(&pipeline)
-				if yamledit.AppendOrReplaceNode(processorsNode, appendPreserveIndex, newPipelineAppendPreserveOriginalEvent()) {
-					modified = true
-				}
-
 			}
 
 			if !modified {
@@ -244,56 +224,9 @@ func findPipelineOnFailureSetErrorMessage(pipeline *fleetpkg.IngestPipeline) (in
 	return -1, ""
 }
 
-func findAppendPreserveProcessor(p *fleetpkg.IngestPipeline) int {
-	for i, proc := range p.Processors {
-		if proc.Type != "append" {
-			continue
-		}
-		if s, ok := proc.Attributes["field"].(string); ok && s == "tags" {
-			if s, ok := proc.Attributes["value"].(string); ok && s == "preserve_original_event" {
-				return i
-			}
-		}
-	}
-
-	return -1
-}
-
-func findAppendPreserveFailureProcessor(p *fleetpkg.IngestPipeline) int {
-	for i, proc := range p.OnFailure {
-		if proc.Type != "append" {
-			continue
-		}
-		if s, ok := proc.Attributes["field"].(string); ok && s == "tags" {
-			if s, ok := proc.Attributes["value"].(string); ok && s == "preserve_original_event" {
-				return i
-			}
-		}
-	}
-
-	return -1
-}
-
-func findRemoveEventOriginal(p *fleetpkg.IngestPipeline) int {
-	for i, proc := range p.Processors {
-		if proc.Type != "remove" {
-			continue
-		}
-		if s, ok := proc.Attributes["field"].(string); ok && s == "event.original" {
-			return i
-		}
-	}
-
-	return -1
-}
-
 func newPipelineOnFailureNode() *ast.MappingValueNode {
 	f, err := parser.ParseBytes([]byte(`
 on_failure:
-  - append:
-      field: tags
-      value: preserve_original_event
-      allow_duplicates: false
   - set:
       field: event.kind
       value: pipeline_error
@@ -333,37 +266,6 @@ set:
   field: event.kind
   value: pipeline_error
 `), parser.ParseComments)
-	if err != nil {
-		panic(err)
-	}
-
-	return f.Docs[0].Body
-}
-
-func newPipelineOnFailureAppendPreserveOriginalEvent() ast.Node {
-	f, err := parser.ParseBytes([]byte(`
-append:
- field: tags
- value: preserve_original_event
- allow_duplicates: false
-`), parser.ParseComments)
-	if err != nil {
-		panic(err)
-	}
-
-	return f.Docs[0].Body
-}
-
-func newPipelineAppendPreserveOriginalEvent() ast.Node {
-	f, err := parser.ParseBytes([]byte(`
-append:
-  tag: append_preserve_original_event_on_error
-  field: tags
-  value: preserve_original_event
-  allow_duplicates: false
-  if: ctx.error?.message != null
-`), parser.ParseComments)
-
 	if err != nil {
 		panic(err)
 	}
