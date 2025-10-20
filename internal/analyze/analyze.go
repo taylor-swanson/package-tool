@@ -5,6 +5,8 @@ import (
 	"strconv"
 
 	"github.com/andrewkroh/go-fleetpkg"
+	"github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
 )
 
 type Analyzer struct {
@@ -43,30 +45,54 @@ type Related struct {
 }
 
 type Pos struct {
-	File string
-	Line int
-	Col  int
+	File   string
+	Path   string
+	Line   int
+	Column int
 }
 
 func (p Pos) String() string {
 	if p.Line == 0 {
 		return p.File
 	}
-	if p.Col == 0 {
+	if p.Column == 0 {
 		return p.File + ":" + strconv.Itoa(p.Line)
 	}
 
-	return p.File + ":" + strconv.Itoa(p.Line) + ":" + strconv.Itoa(p.Col)
+	return p.File + ":" + strconv.Itoa(p.Line) + ":" + strconv.Itoa(p.Column)
 }
 
 func (p Pos) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p.String())
 }
 
-func NewPos(meta fleetpkg.FileMetadata) Pos {
+// NewPosFromFileMetadata creates a new Pos from the given file metadata.
+func NewPosFromFileMetadata(meta fleetpkg.FileMetadata) Pos {
 	return Pos{
-		File: meta.Path(),
-		Line: meta.Line(),
-		Col:  meta.Column(),
+		File:   meta.Path(),
+		Line:   meta.Line(),
+		Column: meta.Column(),
 	}
+}
+
+// NewPosFromPath creates a new Pos from the node at path in the given file.
+func NewPosFromPath(f *ast.File, yamlPath string) (Pos, error) {
+	p, err := yaml.PathString(yamlPath)
+	if err != nil {
+		return Pos{}, err
+	}
+
+	n, err := p.FilterFile(f)
+	if err != nil {
+		return Pos{}, err
+	}
+
+	t := n.GetToken().Position
+
+	return Pos{
+		File:   f.Name,
+		Path:   yamlPath,
+		Line:   t.Line,
+		Column: t.Column,
+	}, nil
 }

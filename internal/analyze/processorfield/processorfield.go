@@ -46,7 +46,7 @@ func findInProcessor(proc *fleetpkg.Processor, field string, result *analyze.Res
 	for _, k := range findKeys {
 		if s, ok := proc.Attributes[k]; ok && field == s {
 			result.Findings = append(result.Findings, analyze.Finding{
-				Pos:      analyze.NewPos(proc.FileMetadata),
+				Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
 				Category: Name,
 				Message:  "Found usage",
 			})

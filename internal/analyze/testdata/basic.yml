@@ -1,0 +1,5 @@
+processors:
+  - set:
+      tag: set_foo
+      field: foo
+      value: bar

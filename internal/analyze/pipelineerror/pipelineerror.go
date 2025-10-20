@@ -56,7 +56,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 						value, _ := proc.Attributes["value"].(string)
 						if !strings.Contains(value, "_ingest.on_failure_processor_tag") {
 							result.Findings = append(result.Findings, analyze.Finding{
-								Pos:      analyze.NewPos(proc.FileMetadata),
+								Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
 								Category: Name,
 								Message:  "Pipeline on_failure error message must include the processor tag ('_ingest.on_failure_processor_tag')",
 							})
@@ -66,7 +66,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 						value, _ := proc.Attributes["value"]
 						if value != "pipeline_error" {
 							result.Findings = append(result.Findings, analyze.Finding{
-								Pos:      analyze.NewPos(proc.FileMetadata),
+								Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
 								Category: Name,
 								Message:  "Pipeline on_failure handler must set event.kind to 'pipeline_error'",
 							})
@@ -80,7 +80,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 						value, _ := proc.Attributes["value"].(string)
 						if !strings.Contains(value, "_ingest.on_failure_processor_tag") {
 							result.Findings = append(result.Findings, analyze.Finding{
-								Pos:      analyze.NewPos(proc.FileMetadata),
+								Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
 								Category: Name,
 								Message:  "Pipeline on_failure error message must include the processor tag ('_ingest.on_failure_processor_tag')",
 							})
@@ -91,7 +91,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 
 			var onFailurePos analyze.Pos
 			if len(pipeline.OnFailure) > 0 {
-				onFailurePos = analyze.NewPos(pipeline.OnFailure[0].FileMetadata)
+				onFailurePos = analyze.NewPosFromFileMetadata(pipeline.OnFailure[0].FileMetadata)
 			} else {
 				onFailurePos = analyze.Pos{File: pipeline.Path()}
 				result.Findings = append(result.Findings, analyze.Finding{

@@ -54,7 +54,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 				raw, ok := proc.Attributes["tag"]
 				if !ok {
 					result.Findings = append(result.Findings, analyze.Finding{
-						Pos:      analyze.NewPos(proc.FileMetadata),
+						Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
 						Category: Name,
 						Message:  fmt.Sprintf("Missing tag on %s processor at index %d", proc.Type, i),
 					})
@@ -63,7 +63,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 				tag, ok := raw.(string)
 				if !ok {
 					result.Findings = append(result.Findings, analyze.Finding{
-						Pos:      analyze.NewPos(proc.FileMetadata),
+						Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
 						Category: Name,
 						Message:  fmt.Sprintf("Invalid tag type (got: %T want: string) on %s processor at index %d", raw, proc.Type, i),
 					})
@@ -72,11 +72,11 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 
 				if other, dup := seen[tag]; dup {
 					result.Findings = append(result.Findings, analyze.Finding{
-						Pos:      analyze.NewPos(proc.FileMetadata),
+						Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
 						Category: Name,
 						Message:  fmt.Sprintf("Duplicate tag %q on %s processor index %d", tag, proc.Type, i),
 						Related: []analyze.Related{{
-							Pos:     analyze.NewPos(other.Processor.FileMetadata),
+							Pos:     analyze.NewPosFromFileMetadata(other.Processor.FileMetadata),
 							Message: fmt.Sprintf("Processor first seen at index %d", other.Index),
 						}},
 					})
