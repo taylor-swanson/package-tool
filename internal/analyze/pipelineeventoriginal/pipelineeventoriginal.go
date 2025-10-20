@@ -14,7 +14,7 @@ import (
 	"package-tool/internal/yamledit"
 )
 
-const Name = "pipeline-error"
+const Name = "pipeline-event-original"
 
 var Analyzer = &analyze.Analyzer{
 	Name:        Name,
