@@ -16,6 +16,7 @@ import (
 	"package-tool/internal/analyze/pipelineerror"
 	"package-tool/internal/analyze/pipelineeventoriginal"
 	"package-tool/internal/analyze/pipelinetag"
+	"package-tool/internal/analyze/processorfield"
 )
 
 const (
@@ -35,6 +36,7 @@ var analyzers = []*analyze.Analyzer{
 	pipelineerror.Analyzer,
 	pipelineeventoriginal.Analyzer,
 	pipelinetag.Analyzer,
+	processorfield.Analyzer,
 }
 
 func getAnalyzer(name string) (*analyze.Analyzer, bool) {
@@ -56,6 +58,7 @@ func newCmdAnalyze() *cobra.Command {
 
 	cmd.Flags().Bool("fix", false, "apply fixes suggested by analyzer (if applicable)")
 	cmd.Flags().StringP("output", "o", analyzeFormatTextColor, "output format (choose from: "+strings.Join(analyzeFormats, ", ")+")")
+	cmd.Flags().StringSliceP("args", "a", nil, "Extra arguments to pass to analyzer")
 
 	return cmd
 }
@@ -93,6 +96,7 @@ func doAnalyze(cmd *cobra.Command, args []string) error {
 	}
 
 	fix, _ := cmd.Flags().GetBool("fix")
+	args, _ = cmd.Flags().GetStringSlice("args")
 
 	results := map[string]analyze.Result{}
 	for _, pkgDir := range pkgDirs {
@@ -105,6 +109,7 @@ func doAnalyze(cmd *cobra.Command, args []string) error {
 		ctx := analyze.Context{
 			Package: pkg,
 			Fix:     fix,
+			Args:    args,
 		}
 
 		result, err := analyzer.Run(&ctx)

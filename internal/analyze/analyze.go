@@ -17,6 +17,7 @@ type Analyzer struct {
 type Context struct {
 	Package *fleetpkg.Integration
 	Fix     bool
+	Args    []string
 }
 
 type Result struct {
