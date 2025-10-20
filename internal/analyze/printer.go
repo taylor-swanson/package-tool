@@ -61,11 +61,11 @@ func text(w io.Writer, results map[string]Result, wantColor bool) error {
 
 		result := results[k]
 
-		if _, err = bold.Fprintln(w, "  Issues"); err != nil {
+		if _, err = bold.Fprintln(w, "  Findings"); err != nil {
 			return err
 		}
-		if len(result.Issues) > 0 {
-			for _, d := range result.Issues {
+		if len(result.Findings) > 0 {
+			for _, d := range result.Findings {
 				if _, err = fmt.Fprint(w, "    - "); err != nil {
 					return err
 				}
@@ -100,7 +100,7 @@ func text(w io.Writer, results map[string]Result, wantColor bool) error {
 				}
 			}
 		} else {
-			if _, err = green.Fprintln(w, "    No issues"); err != nil {
+			if _, err = green.Fprintln(w, "    No findings"); err != nil {
 				return err
 			}
 		}

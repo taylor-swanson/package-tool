@@ -30,7 +30,7 @@ func run(ctx *analyze.Context) (analyze.Result, error) {
 		return result, err
 	}
 
-	if ctx.Fix && len(result.Issues) > 0 {
+	if ctx.Fix && len(result.Findings) > 0 {
 		if err := doFix(ctx, &result); err != nil {
 			return result, err
 		}

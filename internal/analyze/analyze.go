@@ -21,11 +21,11 @@ type Context struct {
 }
 
 type Result struct {
-	Issues []Issue
-	Fixes  []Fix
+	Findings []Finding
+	Fixes    []Fix
 }
 
-type Issue struct {
+type Finding struct {
 	Pos      Pos       `json:"pos"`
 	Category string    `json:"category"`
 	Message  string    `json:"message"`

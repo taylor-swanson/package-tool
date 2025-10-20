@@ -45,7 +45,7 @@ func run(ctx *analyze.Context) (analyze.Result, error) {
 func findInProcessor(proc *fleetpkg.Processor, field string, result *analyze.Result) {
 	for _, k := range findKeys {
 		if s, ok := proc.Attributes[k]; ok && field == s {
-			result.Issues = append(result.Issues, analyze.Issue{
+			result.Findings = append(result.Findings, analyze.Finding{
 				Pos:      analyze.NewPos(proc.FileMetadata),
 				Category: Name,
 				Message:  "Found usage",

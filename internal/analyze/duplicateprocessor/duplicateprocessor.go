@@ -58,7 +58,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 				}
 
 				if other, dup := seen[hash]; dup {
-					result.Issues = append(result.Issues, analyze.Issue{
+					result.Findings = append(result.Findings, analyze.Finding{
 						Pos:      analyze.NewPos(proc.FileMetadata),
 						Category: Name,
 						Message:  fmt.Sprintf("Processor %s in %s at index %d already exists in %s at index %d in data stream %s", proc.Type, filepath.Base(pipeline.Path()), i, other.Pipeline, other.Index, dsName),

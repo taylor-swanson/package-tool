@@ -31,7 +31,7 @@ func run(ctx *analyze.Context) (analyze.Result, error) {
 		return result, err
 	}
 
-	if ctx.Fix && len(result.Issues) > 0 {
+	if ctx.Fix && len(result.Findings) > 0 {
 		if err := doFix(ctx, &result); err != nil {
 			return result, err
 		}
@@ -55,7 +55,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 						hasErrorMessage = true
 						value, _ := proc.Attributes["value"].(string)
 						if !strings.Contains(value, "_ingest.on_failure_processor_tag") {
-							result.Issues = append(result.Issues, analyze.Issue{
+							result.Findings = append(result.Findings, analyze.Finding{
 								Pos:      analyze.NewPos(proc.FileMetadata),
 								Category: Name,
 								Message:  "Pipeline on_failure error message must include the processor tag ('_ingest.on_failure_processor_tag')",
@@ -65,7 +65,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 						hasEventKind = true
 						value, _ := proc.Attributes["value"]
 						if value != "pipeline_error" {
-							result.Issues = append(result.Issues, analyze.Issue{
+							result.Findings = append(result.Findings, analyze.Finding{
 								Pos:      analyze.NewPos(proc.FileMetadata),
 								Category: Name,
 								Message:  "Pipeline on_failure handler must set event.kind to 'pipeline_error'",
@@ -79,7 +79,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 						hasErrorMessage = true
 						value, _ := proc.Attributes["value"].(string)
 						if !strings.Contains(value, "_ingest.on_failure_processor_tag") {
-							result.Issues = append(result.Issues, analyze.Issue{
+							result.Findings = append(result.Findings, analyze.Finding{
 								Pos:      analyze.NewPos(proc.FileMetadata),
 								Category: Name,
 								Message:  "Pipeline on_failure error message must include the processor tag ('_ingest.on_failure_processor_tag')",
@@ -94,7 +94,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 				onFailurePos = analyze.NewPos(pipeline.OnFailure[0].FileMetadata)
 			} else {
 				onFailurePos = analyze.Pos{File: pipeline.Path()}
-				result.Issues = append(result.Issues, analyze.Issue{
+				result.Findings = append(result.Findings, analyze.Finding{
 					Pos:      onFailurePos,
 					Category: Name,
 					Message:  "Pipeline must include on_failure handler",
@@ -102,14 +102,14 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 			}
 
 			if !hasErrorMessage {
-				result.Issues = append(result.Issues, analyze.Issue{
+				result.Findings = append(result.Findings, analyze.Finding{
 					Pos:      onFailurePos,
 					Category: Name,
 					Message:  "Pipeline on_failure handler must set error.message",
 				})
 			}
 			if !hasEventKind {
-				result.Issues = append(result.Issues, analyze.Issue{
+				result.Findings = append(result.Findings, analyze.Finding{
 					Pos:      onFailurePos,
 					Category: Name,
 					Message:  "Pipeline on_failure handler must set event.kind to 'pipeline_error'",

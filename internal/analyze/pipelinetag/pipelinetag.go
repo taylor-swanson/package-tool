@@ -31,7 +31,7 @@ func run(ctx *analyze.Context) (analyze.Result, error) {
 		return result, err
 	}
 
-	if ctx.Fix && len(result.Issues) > 0 {
+	if ctx.Fix && len(result.Findings) > 0 {
 		if err := doFix(ctx, &result); err != nil {
 			return result, err
 		}
@@ -53,7 +53,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 			for i, proc := range pipeline.Processors {
 				raw, ok := proc.Attributes["tag"]
 				if !ok {
-					result.Issues = append(result.Issues, analyze.Issue{
+					result.Findings = append(result.Findings, analyze.Finding{
 						Pos:      analyze.NewPos(proc.FileMetadata),
 						Category: Name,
 						Message:  fmt.Sprintf("Missing tag on %s processor at index %d", proc.Type, i),
@@ -62,7 +62,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 				}
 				tag, ok := raw.(string)
 				if !ok {
-					result.Issues = append(result.Issues, analyze.Issue{
+					result.Findings = append(result.Findings, analyze.Finding{
 						Pos:      analyze.NewPos(proc.FileMetadata),
 						Category: Name,
 						Message:  fmt.Sprintf("Invalid tag type (got: %T want: string) on %s processor at index %d", raw, proc.Type, i),
@@ -71,7 +71,7 @@ func doCheck(ctx *analyze.Context, result *analyze.Result) error {
 				}
 
 				if other, dup := seen[tag]; dup {
-					result.Issues = append(result.Issues, analyze.Issue{
+					result.Findings = append(result.Findings, analyze.Finding{
 						Pos:      analyze.NewPos(proc.FileMetadata),
 						Category: Name,
 						Message:  fmt.Sprintf("Duplicate tag %q on %s processor index %d", tag, proc.Type, i),
