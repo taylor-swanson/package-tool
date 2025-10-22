@@ -66,7 +66,7 @@ func AppendOrReplaceNode(seq *ast.SequenceNode, index int, node ast.Node) bool {
 }
 
 // SetString replaces the node at the specified path with a StringNode.
-func SetString(f *ast.File, p *yaml.Path, value string) error {
+func SetString(f *ast.File, p *yaml.Path, value string, prepend bool) error {
 	_, err := p.FilterFile(f)
 	if err != nil {
 		if yaml.IsNotFoundNodeError(err) {
@@ -76,7 +76,7 @@ func SetString(f *ast.File, p *yaml.Path, value string) error {
 				return err
 			}
 
-			return appendMapNode(f, parent, key, value)
+			return appendMapNode(f, parent, key, value, prepend)
 		}
 		return err
 	}
@@ -90,7 +90,7 @@ func SetString(f *ast.File, p *yaml.Path, value string) error {
 }
 
 // appendMapNode appends a new key/value to an existing map.
-func appendMapNode(f *ast.File, p *yaml.Path, key string, value any) error {
+func appendMapNode(f *ast.File, p *yaml.Path, key string, value any, prepend bool) error {
 	n, err := p.FilterFile(f)
 	if err != nil {
 		return err
@@ -118,7 +118,11 @@ func appendMapNode(f *ast.File, p *yaml.Path, key string, value any) error {
 	case *ast.MappingNode:
 		// Match indent.
 		newValue.AddColumn(n.GetToken().Position.IndentNum)
-		n.Values = append(n.Values, newValue)
+		if prepend {
+			n.Values = append([]*ast.MappingValueNode{newValue}, n.Values...)
+		} else {
+			n.Values = append(n.Values, newValue)
+		}
 	default:
 		return fmt.Errorf("node found at path %s is not a map (found %T)", p.String(), n)
 	}

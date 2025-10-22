@@ -3,7 +3,7 @@ module package-tool
 go 1.25
 
 require (
-	github.com/andrewkroh/go-fleetpkg v0.0.19
+	github.com/andrewkroh/go-fleetpkg v0.0.20-0.20251021133541-40488264ccd7
 	github.com/fatih/color v1.18.0
 	github.com/goccy/go-yaml v1.18.0
 	github.com/spf13/cobra v1.10.1

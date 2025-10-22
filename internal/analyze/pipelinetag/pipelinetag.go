@@ -24,15 +24,44 @@ var Analyzer = &analyze.Analyzer{
 	Run:         run,
 }
 
+type ProcessorInfo struct {
+	Processor *fleetpkg.Processor
+	Parent    *ProcessorInfo
+	Path      string
+	Index     int
+}
+
+func (p *ProcessorInfo) ParentProcessor() *fleetpkg.Processor {
+	if p.Parent != nil {
+		return p.Parent.Processor
+	}
+
+	return nil
+}
+
+type Change struct {
+	Path            string
+	Pos             analyze.Pos
+	Processor       *fleetpkg.Processor
+	ParentProcessor *fleetpkg.Processor
+}
+
+type ChangeSet struct {
+	Pipeline   *fleetpkg.IngestPipeline
+	DataStream *fleetpkg.DataStream
+	Changes    []Change
+}
+
 func run(ctx *analyze.Context) (analyze.Result, error) {
 	var result analyze.Result
 
-	if err := doCheck(ctx, &result); err != nil {
+	changes, err := doCheck(ctx, &result)
+	if err != nil {
 		return result, err
 	}
 
-	if ctx.Fix && len(result.Findings) > 0 {
-		if err := doFix(ctx, &result); err != nil {
+	if ctx.Fix && len(changes) > 0 {
+		if err := doFix(ctx, changes, &result); err != nil {
 			return result, err
 		}
 	}
@@ -40,110 +69,128 @@ func run(ctx *analyze.Context) (analyze.Result, error) {
 	return result, nil
 }
 
-func doCheck(ctx *analyze.Context, result *analyze.Result) error {
+func doCheck(ctx *analyze.Context, result *analyze.Result) ([]ChangeSet, error) {
+	var changeSets []ChangeSet
+
 	for _, ds := range ctx.Package.DataStreams {
 		for _, pipeline := range ds.Pipelines {
-			type ProcessorInfo struct {
-				Index     int
-				Processor *fleetpkg.Processor
-			}
 
-			seen := map[string]ProcessorInfo{}
+			var changeSet ChangeSet
+			seen := map[string]*ProcessorInfo{}
 
 			for i, proc := range pipeline.Processors {
-				raw, ok := proc.Attributes["tag"]
-				if !ok {
-					result.Findings = append(result.Findings, analyze.Finding{
-						Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
-						Category: Name,
-						Message:  fmt.Sprintf("Missing tag on %s processor at index %d", proc.Type, i),
-					})
-					continue
-				}
-				tag, ok := raw.(string)
-				if !ok {
-					result.Findings = append(result.Findings, analyze.Finding{
-						Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
-						Category: Name,
-						Message:  fmt.Sprintf("Invalid tag type (got: %T want: string) on %s processor at index %d", raw, proc.Type, i),
-					})
-					continue
-				}
-
-				if other, dup := seen[tag]; dup {
-					result.Findings = append(result.Findings, analyze.Finding{
-						Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
-						Category: Name,
-						Message:  fmt.Sprintf("Duplicate tag %q on %s processor index %d", tag, proc.Type, i),
-						Related: []analyze.Related{{
-							Pos:     analyze.NewPosFromFileMetadata(other.Processor.FileMetadata),
-							Message: fmt.Sprintf("Processor first seen at index %d", other.Index),
-						}},
-					})
-				}
-
-				seen[tag] = ProcessorInfo{
-					Index:     i,
+				procInfo := &ProcessorInfo{
 					Processor: proc,
+					Parent:    nil,
+					Path:      fmt.Sprintf("$.processors[%d].%s", i, proc.Type),
+					Index:     i,
+				}
+
+				if err := checkProcessorTag(procInfo, result, &changeSet, seen); err != nil {
+					return nil, err
 				}
 			}
+
+			if ctx.Fix && len(changeSet.Changes) > 0 {
+				changeSet.DataStream = ds
+				changeSet.Pipeline = &pipeline
+				changeSets = append(changeSets, changeSet)
+			}
+		}
+	}
+
+	return changeSets, nil
+}
+
+func checkProcessorTag(proc *ProcessorInfo, result *analyze.Result, changeSet *ChangeSet, seen map[string]*ProcessorInfo) error {
+	var invalid bool
+
+	tag, ok := proc.Processor.Attributes["tag"].(string)
+	if ok {
+		if tag == "" {
+			result.Findings = append(result.Findings, analyze.Finding{
+				Pos:      analyze.NewPosFromFileMetadata(proc.Processor.FileMetadata),
+				Category: Name,
+				Message:  fmt.Sprintf("Empty tag on %s processor at index %d", proc.Processor.Type, proc.Index),
+			})
+			invalid = true
+		} else if _, dup := seen[tag]; dup {
+			result.Findings = append(result.Findings, analyze.Finding{
+				Pos:      analyze.NewPosFromFileMetadata(proc.Processor.FileMetadata),
+				Category: Name,
+				Message:  fmt.Sprintf("Duplicated tag on %s processor at index %d", proc.Processor.Type, proc.Index),
+			})
+			invalid = true
+
+		}
+	} else {
+		result.Findings = append(result.Findings, analyze.Finding{
+			Pos:      analyze.NewPosFromFileMetadata(proc.Processor.FileMetadata),
+			Category: Name,
+			Message:  fmt.Sprintf("Missing or invalid tag on %s processor at index %d", proc.Processor.Type, proc.Index),
+		})
+		invalid = true
+	}
+
+	if invalid {
+		changeSet.Changes = append(changeSet.Changes, Change{
+			Path:            proc.Path + ".tag",
+			Pos:             analyze.NewPosFromFileMetadata(proc.Processor.FileMetadata),
+			Processor:       proc.Processor,
+			ParentProcessor: proc.ParentProcessor(),
+		})
+	} else {
+		seen[tag] = proc
+	}
+
+	for i, onFailProc := range proc.Processor.OnFailure {
+		onFailProcInfo := &ProcessorInfo{
+			Processor: onFailProc,
+			Parent:    proc,
+			Path:      fmt.Sprintf("%s.on_failure[%d].%s", proc.Path, i, onFailProc.Type),
+			Index:     i,
+		}
+		if err := checkProcessorTag(onFailProcInfo, result, changeSet, seen); err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func doFix(ctx *analyze.Context, result *analyze.Result) error {
-	for _, ds := range ctx.Package.DataStreams {
-		for _, pipeline := range ds.Pipelines {
-			f, err := parser.ParseFile(pipeline.Path(), parser.ParseComments)
+func doFix(ctx *analyze.Context, changeSets []ChangeSet, result *analyze.Result) error {
+	for _, changeSet := range changeSets {
+		f, err := parser.ParseFile(changeSet.Pipeline.Path(), parser.ParseComments)
+		if err != nil {
+			return fmt.Errorf("failed to parse pipeline %q: %w", changeSet.Pipeline.Path(), err)
+		}
+
+		for _, change := range changeSet.Changes {
+			tag, err := generateTag(change.Processor, change.ParentProcessor)
 			if err != nil {
-				return fmt.Errorf("failed to parse pipeline %q: %w", pipeline.Path(), err)
+				return err // TODO: What about this error?
 			}
 
-			modified := false
-			seen := map[string]struct{}{}
-
-			for i, proc := range pipeline.Processors {
-				tag, ok := proc.Attributes["tag"].(string)
-				if ok && tag != "" {
-					if _, dup := seen[tag]; !dup {
-						seen[tag] = struct{}{}
-						continue
-					}
-				}
-
-				if tag, err = generateTag(proc, nil); err != nil {
-					return fmt.Errorf("failed to create tag for processor at index %d in pipeline %q: %w", i, pipeline.Path(), err)
-				}
-				if _, dup := seen[tag]; dup { // TODO: Make error permissive, otherwise resolve duplicate
-					return fmt.Errorf("generated duplicate tag for processor at index %d in pipeline %q: %s", i, pipeline.Path(), tag)
-				}
-
-				yamlPath, err := yaml.PathString(fmt.Sprintf("$.processors[%d].%s.tag", i, proc.Type))
-				if err != nil {
-					return fmt.Errorf("failed to create yaml path for processor at index %d in pipeline %q: %w", i, pipeline.Path(), err)
-				}
-				if err = yamledit.SetString(f, yamlPath, tag); err != nil {
-					return fmt.Errorf("failed to set tag for processor at index %d in pipeline %q: %w", i, pipeline.Path(), err)
-				}
-
-				modified = true
-				seen[tag] = struct{}{}
-
-				// TODO: on_failure processors and foreach processors !!!
+			p, err := yaml.PathString(change.Path)
+			if err != nil {
+				return err // TODO: What about this error?
 			}
 
-			if !modified {
-				continue
+			if err = yamledit.SetString(f, p, tag, true); err != nil {
+				return err // TODO: What about this error?
 			}
 
-			p := printer.Printer{}
-			d := p.PrintNode(f.Docs[0])
+			result.Fixes = append(result.Fixes, analyze.Fix{
+				Category: Name,
+				Message:  fmt.Sprintf("Generated tag %q", tag), // TODO: Need more context.
+			})
+		}
 
-			if err = os.WriteFile(pipeline.Path(), d, 0o644); err != nil {
-				return fmt.Errorf("failed to write pipeline %q: %w", pipeline.Path(), err)
-			}
+		p := printer.Printer{}
+		d := p.PrintNode(f.Docs[0])
+
+		if err = os.WriteFile(changeSet.Pipeline.Path(), d, 0o644); err != nil {
+			return fmt.Errorf("failed to write pipeline %q: %w", changeSet.Pipeline.Path(), err)
 		}
 	}
 
