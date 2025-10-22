@@ -31,7 +31,7 @@ func run(ctx *analyze.Context) (analyze.Result, error) {
 		return result, err
 	}
 
-	if ctx.Fix && len(result.Findings) > 0 {
+	if ctx.Fix {
 		if err := doFix(ctx, &result); err != nil {
 			return result, err
 		}
@@ -235,7 +235,8 @@ on_failure:
       value: >-
         Processor '{{{ _ingest.on_failure_processor_type }}}'
         {{#_ingest.on_failure_processor_tag}}with tag '{{{ _ingest.on_failure_processor_tag }}}'
-        {{/_ingest.on_failure_processor_tag}}failed with message '{{{ _ingest.on_failure_message }}}'
+        {{/_ingest.on_failure_processor_tag}}in pipeline '{{{ _ingest.pipeline }}}'
+        failed with message '{{{ _ingest.on_failure_message }}}'
 `), parser.ParseComments)
 	if err != nil {
 		panic(err)
@@ -251,7 +252,8 @@ func newPipelineOnFailureSetErrorMessageNode(procType string) ast.Node {
   value: >-
     Processor '{{{ _ingest.on_failure_processor_type }}}'
     {{#_ingest.on_failure_processor_tag}}with tag '{{{ _ingest.on_failure_processor_tag }}}'
-    {{/_ingest.on_failure_processor_tag}}failed with message '{{{ _ingest.on_failure_message }}}'
+    {{/_ingest.on_failure_processor_tag}}in pipeline '{{{ _ingest.pipeline }}}'
+    failed with message '{{{ _ingest.on_failure_message }}}'
 `, procType)), parser.ParseComments)
 	if err != nil {
 		panic(err)
