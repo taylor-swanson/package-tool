@@ -39,3 +39,11 @@ Check for usages of `FIELD` in ingest pipeline processors.
 ```shell
 package-tool analyze processor-field --args FIELD
 ```
+
+## validations
+
+Find usages of validations in packages.
+
+```shell
+package-tool analyze processor-field --args FIELD
+```

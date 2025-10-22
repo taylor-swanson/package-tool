@@ -17,6 +17,7 @@ import (
 	"package-tool/internal/analyze/pipelineeventoriginal"
 	"package-tool/internal/analyze/pipelinetag"
 	"package-tool/internal/analyze/processorfield"
+	"package-tool/internal/analyze/validations"
 )
 
 const (
@@ -37,6 +38,7 @@ var analyzers = []*analyze.Analyzer{
 	pipelineeventoriginal.Analyzer,
 	pipelinetag.Analyzer,
 	processorfield.Analyzer,
+	validations.Analyzer,
 }
 
 func getAnalyzer(name string) (*analyze.Analyzer, bool) {
