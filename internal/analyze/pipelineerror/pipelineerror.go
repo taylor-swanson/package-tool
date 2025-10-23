@@ -143,12 +143,19 @@ func doFix(ctx *analyze.Context, result *analyze.Result) error {
 
 				n.Values = append(n.Values, newNode)
 
+				result.Fixes = append(result.Fixes, analyze.Fix{
+					Category: Name,
+					Message:  "Added pipeline on_failure handler",
+				})
 				modified = true
 			} else {
 				// 1. Check event.kind: pipeline_error
 				setEventKindIndex := findPipelineOnFailureSetEventKind(&pipeline)
 				if yamledit.AppendOrReplaceNode(onFailureNode, setEventKindIndex, newPipelineOnFailureSetEventKindNode()) {
-					fmt.Println("  Modified event.kind")
+					result.Fixes = append(result.Fixes, analyze.Fix{
+						Category: Name,
+						Message:  "Modified event.kind: pipeline_error",
+					})
 					modified = true
 				}
 
@@ -156,12 +163,18 @@ func doFix(ctx *analyze.Context, result *analyze.Result) error {
 				errorMessageIndex, errorMessageType := findPipelineOnFailureSetErrorMessage(&pipeline)
 				if errorMessageType == "append" {
 					if yamledit.AppendOrReplaceNode(onFailureNode, errorMessageIndex, newPipelineOnFailureSetErrorMessageNode("append")) {
-						fmt.Println("  Modified error.message (append)")
+						result.Fixes = append(result.Fixes, analyze.Fix{
+							Category: Name,
+							Message:  "Modified error.message (append)",
+						})
 						modified = true
 					}
 				} else {
 					if yamledit.AppendOrReplaceNode(onFailureNode, errorMessageIndex, newPipelineOnFailureSetErrorMessageNode("set")) {
-						fmt.Println("  Modified error.message (set)")
+						result.Fixes = append(result.Fixes, analyze.Fix{
+							Category: Name,
+							Message:  "Modified error.message (set)",
+						})
 						modified = true
 					}
 				}
