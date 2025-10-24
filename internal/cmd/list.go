@@ -29,9 +29,10 @@ var listFormats = []string{
 
 func newCmdList() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List package contents",
-		RunE:  doList,
+		Use:     "list",
+		Short:   "List package contents",
+		Aliases: []string{"l"},
+		RunE:    doList,
 	}
 
 	cmd.Flags().String("custom-prefix", "", "Prefix to add for custom output")

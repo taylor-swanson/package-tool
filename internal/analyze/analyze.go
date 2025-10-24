@@ -2,24 +2,30 @@ package analyze
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/andrewkroh/go-fleetpkg"
 	"github.com/goccy/go-yaml"
 	"github.com/goccy/go-yaml/ast"
+	"github.com/goccy/go-yaml/parser"
+	"github.com/goccy/go-yaml/printer"
 )
 
 type Analyzer struct {
 	Name        string
 	Description string
 	CanFix      bool
-	Run         func(ctx *Context) (Result, error)
+	Run         func(ctx *Context) error
 }
 
 type Context struct {
 	Package *fleetpkg.Integration
 	Fix     bool
 	Args    []string
+
+	Result Result
 }
 
 type Result struct {
@@ -42,6 +48,33 @@ type Fix struct {
 type Related struct {
 	Pos     Pos    `json:"pos"`
 	Message string `json:"message"`
+}
+
+type AST struct {
+	File     *ast.File
+	Modified bool
+}
+
+// LoadAST loads an AST from filename.
+func LoadAST(filename string) (AST, error) {
+	f, err := parser.ParseFile(filename, parser.ParseComments)
+	if err != nil {
+		return AST{}, fmt.Errorf("failed to parse AST for file %q: %w", filename, err)
+	}
+
+	return AST{File: f}, nil
+}
+
+// WriteFile writes the AST to filename.
+func (a AST) WriteFile(filename string) error {
+	p := printer.Printer{}
+	d := p.PrintNode(a.File.Docs[0])
+
+	if err := os.WriteFile(filename, d, 0o644); err != nil {
+		return fmt.Errorf("failed to write AST to file %q: %w", filename, err)
+	}
+
+	return nil
 }
 
 type Pos struct {

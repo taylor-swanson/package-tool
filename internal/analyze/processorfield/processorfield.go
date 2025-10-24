@@ -20,32 +20,30 @@ var findKeys = []string{
 	"copy_from",
 }
 
-func run(ctx *analyze.Context) (analyze.Result, error) {
-	var result analyze.Result
-
+func run(ctx *analyze.Context) error {
 	if len(ctx.Args) == 0 {
-		return result, nil
+		return nil
 	}
 	field := ctx.Args[0]
 
 	for _, ds := range ctx.Package.DataStreams {
 		for _, pipeline := range ds.Pipelines {
 			for _, proc := range pipeline.Processors {
-				findInProcessor(proc, field, &result)
+				findInProcessor(ctx, proc, field)
 			}
 			for _, proc := range pipeline.OnFailure {
-				findInProcessor(proc, field, &result)
+				findInProcessor(ctx, proc, field)
 			}
 		}
 	}
 
-	return result, nil
+	return nil
 }
 
-func findInProcessor(proc *fleetpkg.Processor, field string, result *analyze.Result) {
+func findInProcessor(ctx *analyze.Context, proc *fleetpkg.Processor, field string) {
 	for _, k := range findKeys {
 		if s, ok := proc.Attributes[k]; ok && field == s {
-			result.Findings = append(result.Findings, analyze.Finding{
+			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
 				Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
 				Category: Name,
 				Message:  "Found usage",

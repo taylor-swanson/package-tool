@@ -89,6 +89,23 @@ func SetString(f *ast.File, p *yaml.Path, value string, prepend bool) error {
 	return p.ReplaceWithNode(f, replacement)
 }
 
+func GetSequenceNode(f *ast.File, yamlPath string) *ast.SequenceNode {
+	p, err := yaml.PathString(yamlPath)
+	if err != nil {
+		panic(err)
+	}
+
+	n, err := p.FilterFile(f)
+	if yaml.IsNotFoundNodeError(err) {
+		return nil
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	return n.(*ast.SequenceNode)
+}
+
 // appendMapNode appends a new key/value to an existing map.
 func appendMapNode(f *ast.File, p *yaml.Path, key string, value any, prepend bool) error {
 	n, err := p.FilterFile(f)

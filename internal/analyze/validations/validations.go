@@ -39,22 +39,20 @@ var Analyzer = &analyze.Analyzer{
 	Run:         run,
 }
 
-func run(ctx *analyze.Context) (analyze.Result, error) {
-	var result analyze.Result
-
+func run(ctx *analyze.Context) error {
 	var validation pkg.Validation
 	err := pkg.ReadYAML(filepath.Join(ctx.Package.Path(), "validation.yml"), &validation, true)
 	if errors.Is(err, os.ErrNotExist) {
-		return result, nil
+		return nil
 	}
 	if err != nil {
-		return result, err
+		return err
 	}
 
 	// Exclude checks
 	for _, v := range validation.Errors.ExcludeChecks {
 		// TODO: Filter for specific exclude?
-		result.Findings = append(result.Findings, analyze.Finding{
+		ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
 			Category: Name,
 			Message:  fmtExcludeCheckDesc(v),
 		})
@@ -62,7 +60,7 @@ func run(ctx *analyze.Context) (analyze.Result, error) {
 
 	// Docs structure
 	if !validation.DocsStructureEnforced.Enabled {
-		result.Findings = append(result.Findings, analyze.Finding{
+		ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
 			Category: Name,
 			Message:  "Docs structure is not enforced",
 		})
@@ -70,5 +68,5 @@ func run(ctx *analyze.Context) (analyze.Result, error) {
 		// TODO: Docs structure filters?
 	}
 
-	return result, nil
+	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"path/filepath"
 
 	"github.com/andrewkroh/go-fleetpkg"
 
@@ -19,65 +18,67 @@ var Analyzer = &analyze.Analyzer{
 	Run:         run,
 }
 
-func run(ctx *analyze.Context) (analyze.Result, error) {
-	var result analyze.Result
-
-	if err := doCheck(ctx, &result); err != nil {
-		return result, err
-	}
-
-	return result, nil
+type processorNode struct {
+	Hash       uint64
+	Processor  *fleetpkg.Processor
+	DataStream string
+	Pipeline   string
+	Index      int
 }
 
-func doCheck(ctx *analyze.Context, result *analyze.Result) error {
-	type ProcessorInfo struct {
-		Hash      uint64
-		Processor *fleetpkg.Processor
-		Pipeline  string
-		Index     int
-	}
-
+func run(ctx *analyze.Context) error {
 	for dsName, ds := range ctx.Package.DataStreams {
-		seen := map[uint64]ProcessorInfo{}
+		seen := map[uint64]*processorNode{}
 
-		var pipelines []fleetpkg.IngestPipeline
-		pipelines = append(pipelines, ds.Pipelines["default.yml"])
-		for filename, pipeline := range ds.Pipelines {
-			if filename == "default.yml" {
+		var pipelineNames []string
+		if _, ok := ds.Pipelines["default.yml"]; ok {
+			pipelineNames = []string{"default.yml"}
+		}
+		for name := range ds.Pipelines {
+			if name == "default.yml" {
 				continue
 			}
-			pipelines = append(pipelines, pipeline)
+			pipelineNames = append(pipelineNames, name)
 		}
 
-		for _, pipeline := range pipelines {
+		for _, name := range pipelineNames {
+			pipeline := ds.Pipelines[name]
 			for i, proc := range pipeline.Processors {
-
-				hash, err := generateProcessorHash(proc)
-				if err != nil {
-					return fmt.Errorf("unable to hash processor at index %d in pipeline %q: %w", i, pipeline.Path(), err)
+				node := processorNode{
+					Processor:  proc,
+					DataStream: dsName,
+					Pipeline:   name,
+					Index:      i,
 				}
-
-				if other, dup := seen[hash]; dup {
-					result.Findings = append(result.Findings, analyze.Finding{
-						Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
-						Category: Name,
-						Message:  fmt.Sprintf("Processor %s in %s at index %d already exists in %s at index %d in data stream %s", proc.Type, filepath.Base(pipeline.Path()), i, other.Pipeline, other.Index, dsName),
-						Related: []analyze.Related{{
-							Pos:     analyze.NewPosFromFileMetadata(other.Processor.FileMetadata),
-							Message: fmt.Sprintf("Processor first seen in %s at index %d", other.Pipeline, other.Index),
-						}},
-					})
-					continue
-				}
-
-				seen[hash] = ProcessorInfo{
-					Hash:      hash,
-					Processor: proc,
-					Pipeline:  filepath.Base(pipeline.Path()),
-					Index:     i,
+				if err := checkProcessor(ctx, &node, seen); err != nil {
+					return err
 				}
 			}
 		}
+	}
+
+	return nil
+}
+
+func checkProcessor(ctx *analyze.Context, node *processorNode, seen map[uint64]*processorNode) error {
+	var err error
+
+	if node.Hash, err = generateProcessorHash(node.Processor); err != nil {
+		return fmt.Errorf("unable to hash processor at index %d in pipeline %q: %w", node.Index, node.Pipeline, err)
+	}
+
+	if other, dup := seen[node.Hash]; dup {
+		ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
+			Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata),
+			Category: Name,
+			Message:  fmt.Sprintf("Processor %s in %s at index %d already exists in %s at index %d in data stream %s", node.Processor.Type, node.Pipeline, node.Index, other.Pipeline, other.Index, node.DataStream),
+			Related: []analyze.Related{{
+				Pos:     analyze.NewPosFromFileMetadata(other.Processor.FileMetadata),
+				Message: fmt.Sprintf("Processor first seen in %s at index %d", other.Pipeline, other.Index),
+			}},
+		})
+	} else {
+		seen[node.Hash] = node
 	}
 
 	return nil

@@ -53,14 +53,15 @@ func getAnalyzer(name string) (*analyze.Analyzer, bool) {
 
 func newCmdAnalyze() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "analyze ANALYZE [DIR ...]",
-		Short: "Analyze and fix package issues",
-		RunE:  doAnalyze,
+		Use:     "analyze ANALYZE [DIR ...]",
+		Short:   "Analyze and fix package issues",
+		Aliases: []string{"a"},
+		RunE:    doAnalyze,
 	}
 
 	cmd.Flags().Bool("fix", false, "apply fixes suggested by analyzer (if applicable)")
 	cmd.Flags().StringP("output", "o", analyzeFormatTextColor, "output format (choose from: "+strings.Join(analyzeFormats, ", ")+")")
-	cmd.Flags().StringSliceP("args", "a", nil, "Extra arguments to pass to analyzer")
+	cmd.Flags().StringSliceP("args", "a", nil, "extra arguments to pass to analyzer")
 
 	return cmd
 }
@@ -114,12 +115,11 @@ func doAnalyze(cmd *cobra.Command, args []string) error {
 			Args:    args,
 		}
 
-		result, err := analyzer.Run(&ctx)
-		if err != nil {
+		if err = analyzer.Run(&ctx); err != nil {
 			slog.Error("Failed to run analyzer", slog.String("package", pkg.Manifest.Name), slog.String("analyzer", analyzer.Name), slog.String("error", err.Error()))
 			continue
 		}
-		results[pkg.Manifest.Name] = result
+		results[pkg.Manifest.Name] = ctx.Result
 	}
 
 	output, _ := cmd.Flags().GetString("output")
