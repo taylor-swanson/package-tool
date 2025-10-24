@@ -1,4 +1,4 @@
-module package-tool
+module github.com/taylor-swanson/package-tool
 
 go 1.25
 

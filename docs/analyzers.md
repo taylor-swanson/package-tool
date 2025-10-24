@@ -45,5 +45,5 @@ package-tool analyze processor-field --args FIELD
 Find usages of validations in packages.
 
 ```shell
-package-tool analyze processor-field --args FIELD
+package-tool analyze processor-field
 ```

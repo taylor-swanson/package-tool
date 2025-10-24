@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"package-tool/internal/version"
+	"github.com/taylor-swanson/package-tool/internal/version"
 )
 
 func newCmdVersion() *cobra.Command {

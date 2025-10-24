@@ -8,8 +8,8 @@ import (
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/parser"
 
-	"package-tool/internal/analyze"
-	"package-tool/internal/yamledit"
+	"github.com/taylor-swanson/package-tool/internal/analyze"
+	"github.com/taylor-swanson/package-tool/internal/yamledit"
 )
 
 const Name = "pipeline-error"

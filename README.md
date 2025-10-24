@@ -5,13 +5,19 @@ Elastic package tool
 ## Building
 
 ```shell
-go build .
+go build github.com/taylor-swanson/package-tool
+```
+
+## Installation
+
+```shell
+go install github.com/taylor-swanson/package-tool
 ```
 
 ## Usage
 
 ```shell
-package-tool
+package-tool -h
 ```
 
 ## Documentation

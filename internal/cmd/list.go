@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"package-tool/internal/pkg"
+	"github.com/taylor-swanson/package-tool/internal/pkg"
 )
 
 const (

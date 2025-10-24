@@ -1,12 +1,12 @@
 package pipelineeventoriginal
 
 import (
-	"package-tool/internal/analyze"
-	"package-tool/internal/yamledit"
-
 	"github.com/andrewkroh/go-fleetpkg"
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/parser"
+
+	"github.com/taylor-swanson/package-tool/internal/analyze"
+	"github.com/taylor-swanson/package-tool/internal/yamledit"
 )
 
 const Name = "pipeline-event-original"

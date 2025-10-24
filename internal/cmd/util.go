@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"package-tool/internal/pkg"
+	"github.com/taylor-swanson/package-tool/internal/pkg"
 )
 
 func filterPackages(dirs []string, flags *pflag.FlagSet) ([]string, error) {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/andrewkroh/go-fleetpkg"
 
-	"package-tool/internal/analyze"
+	"github.com/taylor-swanson/package-tool/internal/analyze"
 )
 
 const Name = "duplicate-processor"

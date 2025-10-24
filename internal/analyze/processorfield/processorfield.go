@@ -1,9 +1,9 @@
 package processorfield
 
 import (
-	"package-tool/internal/analyze"
-
 	"github.com/andrewkroh/go-fleetpkg"
+
+	"github.com/taylor-swanson/package-tool/internal/analyze"
 )
 
 const Name = "processor-field"

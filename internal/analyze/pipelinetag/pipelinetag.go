@@ -8,8 +8,8 @@ import (
 	"github.com/andrewkroh/go-fleetpkg"
 	"github.com/goccy/go-yaml"
 
-	"package-tool/internal/analyze"
-	"package-tool/internal/yamledit"
+	"github.com/taylor-swanson/package-tool/internal/analyze"
+	"github.com/taylor-swanson/package-tool/internal/yamledit"
 )
 
 const Name = "pipeline-tag"

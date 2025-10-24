@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	"package-tool/internal/cmd"
+	"github.com/taylor-swanson/package-tool/internal/cmd"
 )
 
 func Main() int {

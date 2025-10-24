@@ -2,4 +2,4 @@ package yamledit
 
 import "strings"
 
-var PathCleaner = strings.NewReplacer(".", "_", " ", "_")
+var PathCleaner = strings.NewReplacer(".", "_", " ", "_", "@", "")

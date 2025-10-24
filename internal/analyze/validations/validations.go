@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"package-tool/internal/analyze"
-	"package-tool/internal/pkg"
+	"github.com/taylor-swanson/package-tool/internal/analyze"
+	"github.com/taylor-swanson/package-tool/internal/pkg"
 )
 
 const Name = "validations"

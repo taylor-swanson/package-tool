@@ -11,13 +11,13 @@ import (
 	"github.com/andrewkroh/go-fleetpkg"
 	"github.com/spf13/cobra"
 
-	"package-tool/internal/analyze"
-	"package-tool/internal/analyze/duplicateprocessor"
-	"package-tool/internal/analyze/pipelineerror"
-	"package-tool/internal/analyze/pipelineeventoriginal"
-	"package-tool/internal/analyze/pipelinetag"
-	"package-tool/internal/analyze/processorfield"
-	"package-tool/internal/analyze/validations"
+	"github.com/taylor-swanson/package-tool/internal/analyze"
+	"github.com/taylor-swanson/package-tool/internal/analyze/duplicateprocessor"
+	"github.com/taylor-swanson/package-tool/internal/analyze/pipelineerror"
+	"github.com/taylor-swanson/package-tool/internal/analyze/pipelineeventoriginal"
+	"github.com/taylor-swanson/package-tool/internal/analyze/pipelinetag"
+	"github.com/taylor-swanson/package-tool/internal/analyze/processorfield"
+	"github.com/taylor-swanson/package-tool/internal/analyze/validations"
 )
 
 const (
