@@ -164,11 +164,11 @@ func findAppendPreserveTagOnFailure(p *fleetpkg.IngestPipeline) int {
 func newAppendPreserveTagOnError() ast.Node {
 	f, err := parser.ParseBytes([]byte(`
 append:
- tag: append_preserve_original_event_on_error
- field: tags
- value: preserve_original_event
- allow_duplicates: false
- if: ctx.error?.message != null
+  tag: append_preserve_original_event_on_error
+  field: tags
+  value: preserve_original_event
+  allow_duplicates: false
+  if: ctx.error?.message != null
 `), parser.ParseComments)
 
 	if err != nil {
@@ -181,9 +181,9 @@ append:
 func newAppendPreserveTagOnFailure() ast.Node {
 	f, err := parser.ParseBytes([]byte(`
 append:
-field: tags
-value: preserve_original_event
-allow_duplicates: false
+  field: tags
+  value: preserve_original_event
+  allow_duplicates: false
 `), parser.ParseComments)
 	if err != nil {
 		panic(err)
