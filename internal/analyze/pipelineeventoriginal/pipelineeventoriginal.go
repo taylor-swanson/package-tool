@@ -172,7 +172,6 @@ append:
   allow_duplicates: false
   if: ctx.error?.message != null
 `), parser.ParseComments)
-
 	if err != nil {
 		panic(err)
 	}

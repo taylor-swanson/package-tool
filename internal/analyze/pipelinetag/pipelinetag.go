@@ -163,7 +163,7 @@ func processTag(ctx *analyze.Context, pipelineAST *analyze.AST, node *processorN
 	return nil
 }
 
-func generateTag(proc *fleetpkg.Processor, parent *fleetpkg.Processor) (string, error) {
+func generateTag(proc, parent *fleetpkg.Processor) (string, error) {
 	hash, err := generateProcessorHash(proc, parent)
 	if err != nil {
 		return "", err
@@ -184,7 +184,7 @@ func generateTag(proc *fleetpkg.Processor, parent *fleetpkg.Processor) (string, 
 	return fmt.Sprintf("%s_%s_to_%s_%s", proc.Type, field, targetField, hash), nil
 }
 
-func generateProcessorHash(proc *fleetpkg.Processor, parent *fleetpkg.Processor) (string, error) {
+func generateProcessorHash(proc, parent *fleetpkg.Processor) (string, error) {
 	b, err := json.Marshal(proc)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal processor for hashing: %w", err)
