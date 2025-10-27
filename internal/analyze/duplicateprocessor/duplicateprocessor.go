@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package duplicateprocessor provides an analyzer that finds processors
+// duplicated in ingest pipelines.
 package duplicateprocessor
 
 import (

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package pipelineeventoriginal provides an analyzer that finds and fixes
+// ingest pipeline event.original issues.
 package pipelineeventoriginal
 
 import (

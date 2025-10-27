@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package version provides version information.
 package version
 
 var (

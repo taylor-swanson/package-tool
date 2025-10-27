@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package yamledit provides YAML AST editing and parsing functions.
 package yamledit
 
 import (

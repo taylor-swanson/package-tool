@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package pipelinetag provides an analyzer that finds and fixes ingest pipeline
+// tag issues.
 package pipelinetag
 
 import (
@@ -129,11 +131,11 @@ func processTag(ctx *analyze.Context, pipelineAST *analyze.AST, node *processorN
 
 		p, err := yaml.PathString(node.Path + ".tag")
 		if err != nil {
-			return err // TODO: What about this error?
+			return err
 		}
 
 		if err = yamledit.SetString(pipelineAST.File, p, tag, true); err != nil {
-			return err // TODO: What about this error?
+			return err
 		}
 
 		ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
