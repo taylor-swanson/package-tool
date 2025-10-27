@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package pipelineerror provides an analyzer that finds and fixes ingest
+// pipeline error handler issues.
 package pipelineerror
 
 import (

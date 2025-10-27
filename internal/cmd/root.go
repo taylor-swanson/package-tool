@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package cmd provides commands for the package-tool CLI.
 package cmd
 
 import (
@@ -28,7 +29,7 @@ func Execute() error {
 	cmd := cobra.Command{
 		Use:   "package-tool",
 		Short: "Tools for Elastic integration packages",
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			level := slog.LevelInfo
 
 			logDebug, _ := cmd.Flags().GetBool("debug")
@@ -43,7 +44,7 @@ func Execute() error {
 				slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
 			}
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 		SilenceErrors:     true,

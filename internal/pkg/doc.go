@@ -15,11 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Package version provides version information.
-package version
-
-var (
-	Build   = "dev"
-	Version = "none"
-	Commit  = "none"
-)
+// Package pkg provides functions for working with integration packages.
+package pkg

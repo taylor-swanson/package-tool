@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package pipelinetag provides an analyzer that finds and fixes ingest pipeline
+// tag issues.
 package pipelinetag
 
 import (
@@ -99,14 +101,14 @@ func processTag(ctx *analyze.Context, pipelineAST *analyze.AST, node *processorN
 	if ok {
 		if tag == "" {
 			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-				Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata), // TODO: This shifts during fixes. Maybe this should be deferred to final report.
+				Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata),
 				Category: Name,
 				Message:  fmt.Sprintf("Empty tag on %s processor at index %d", node.Processor.Type, node.Index),
 			})
 			invalid = true
 		} else if _, dup := seen[tag]; dup {
 			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-				Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata), // TODO: This shifts during fixes. Maybe this should be deferred to final report.
+				Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata),
 				Category: Name,
 				Message:  fmt.Sprintf("Duplicated tag on %s processor at index %d", node.Processor.Type, node.Index),
 			})
@@ -115,7 +117,7 @@ func processTag(ctx *analyze.Context, pipelineAST *analyze.AST, node *processorN
 		}
 	} else {
 		ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-			Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata), // TODO: This shifts during fixes. Maybe this should be deferred to final report.
+			Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata),
 			Category: Name,
 			Message:  fmt.Sprintf("Missing or invalid tag on %s processor at index %d", node.Processor.Type, node.Index),
 		})
@@ -129,11 +131,11 @@ func processTag(ctx *analyze.Context, pipelineAST *analyze.AST, node *processorN
 
 		p, err := yaml.PathString(node.Path + ".tag")
 		if err != nil {
-			return err // TODO: What about this error?
+			return err
 		}
 
 		if err = yamledit.SetString(pipelineAST.File, p, tag, true); err != nil {
-			return err // TODO: What about this error?
+			return err
 		}
 
 		ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
@@ -161,7 +163,7 @@ func processTag(ctx *analyze.Context, pipelineAST *analyze.AST, node *processorN
 	return nil
 }
 
-func generateTag(proc *fleetpkg.Processor, parent *fleetpkg.Processor) (string, error) {
+func generateTag(proc, parent *fleetpkg.Processor) (string, error) {
 	hash, err := generateProcessorHash(proc, parent)
 	if err != nil {
 		return "", err
@@ -182,7 +184,7 @@ func generateTag(proc *fleetpkg.Processor, parent *fleetpkg.Processor) (string, 
 	return fmt.Sprintf("%s_%s_to_%s_%s", proc.Type, field, targetField, hash), nil
 }
 
-func generateProcessorHash(proc *fleetpkg.Processor, parent *fleetpkg.Processor) (string, error) {
+func generateProcessorHash(proc, parent *fleetpkg.Processor) (string, error) {
 	b, err := json.Marshal(proc)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal processor for hashing: %w", err)

@@ -42,8 +42,16 @@ package-tool analyze processor-field --args FIELD
 
 ## validations
 
-Find usages of validations in packages.
+Find usages of excluded validations in packages.
+
+### Args
+
+Note: Multiple args may be provided, separated by commas.
+
+- `DOCS`: Filter for packages not enforcing doc standards.
+- `DOCS-<title>` Filter for skipped doc standards, by title.
+- `<validation>` Filter for package-spec exclude checks (i.e., SVR00004).
 
 ```shell
-package-tool analyze processor-field
+package-tool analyze processor-field [--args VALIDATION1,VALIDATION2]
 ```

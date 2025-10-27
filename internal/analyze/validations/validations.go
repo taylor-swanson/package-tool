@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package validations that finds usages of package validations in packages.
 package validations
 
 import (
@@ -22,6 +23,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"github.com/taylor-swanson/package-tool/internal/analyze"
 	"github.com/taylor-swanson/package-tool/internal/pkg"
@@ -68,21 +71,50 @@ func run(ctx *analyze.Context) error {
 
 	// Exclude checks
 	for _, v := range validation.Errors.ExcludeChecks {
-		// TODO: Filter for specific exclude?
+		if len(ctx.Args) > 0 {
+			if !slices.Contains(ctx.Args, v) {
+				continue
+			}
+		}
 		ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
 			Category: Name,
 			Message:  fmtExcludeCheckDesc(v),
 		})
 	}
 
-	// Docs structure
-	if !validation.DocsStructureEnforced.Enabled {
-		ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-			Category: Name,
-			Message:  "Docs structure is not enforced",
-		})
+	var showDocsEnforced bool
+	if len(ctx.Args) > 0 {
+		for _, a := range ctx.Args {
+			if strings.HasPrefix(a, "DOCS") {
+				showDocsEnforced = true
+				break
+			}
+		}
 	} else {
-		// TODO: Docs structure filters?
+		showDocsEnforced = true
+	}
+
+	// Docs structure
+	if showDocsEnforced {
+		if !validation.DocsStructureEnforced.Enabled {
+			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
+				Category: Name,
+				Message:  "Docs structure is not enforced",
+			})
+		} else {
+			for _, skip := range validation.DocsStructureEnforced.Skip {
+				if len(ctx.Args) > 0 {
+					if !slices.Contains(ctx.Args, skip.Title) {
+						continue
+					}
+				}
+
+				ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
+					Category: Name,
+					Message:  "Docs structure skip: " + skip.Title,
+				})
+			}
+		}
 	}
 
 	return nil

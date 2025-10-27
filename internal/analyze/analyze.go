@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package analyze provides a framework for analyzing and modifying packages.
 package analyze
 
 import (

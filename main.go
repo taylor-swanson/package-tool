@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// The package-tool command provides a number of useful utilities for managing
+// Elastic integration packages.
 package main
 
 import (

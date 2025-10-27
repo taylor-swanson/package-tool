@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package processorfield provides an analyzer that finds usages of fields in
+// ingest pipeline processors.
 package processorfield
 
 import (
