@@ -101,14 +101,14 @@ func processTag(ctx *analyze.Context, pipelineAST *analyze.AST, node *processorN
 	if ok {
 		if tag == "" {
 			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-				Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata), // TODO: This shifts during fixes. Maybe this should be deferred to final report.
+				Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata),
 				Category: Name,
 				Message:  fmt.Sprintf("Empty tag on %s processor at index %d", node.Processor.Type, node.Index),
 			})
 			invalid = true
 		} else if _, dup := seen[tag]; dup {
 			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-				Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata), // TODO: This shifts during fixes. Maybe this should be deferred to final report.
+				Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata),
 				Category: Name,
 				Message:  fmt.Sprintf("Duplicated tag on %s processor at index %d", node.Processor.Type, node.Index),
 			})
@@ -117,7 +117,7 @@ func processTag(ctx *analyze.Context, pipelineAST *analyze.AST, node *processorN
 		}
 	} else {
 		ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-			Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata), // TODO: This shifts during fixes. Maybe this should be deferred to final report.
+			Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata),
 			Category: Name,
 			Message:  fmt.Sprintf("Missing or invalid tag on %s processor at index %d", node.Processor.Type, node.Index),
 		})

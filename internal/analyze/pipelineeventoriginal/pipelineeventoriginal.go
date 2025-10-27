@@ -53,7 +53,7 @@ func run(ctx *analyze.Context) error {
 			removeEventOriginalIndex := findRemoveEventOriginal(&pipeline)
 			if removeEventOriginalIndex != -1 {
 				ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-					Pos:      analyze.Pos{}, // TODO: Pos
+					Pos:      analyze.NewPosFromFileMetadata(pipeline.Processors[removeEventOriginalIndex].FileMetadata),
 					Category: Name,
 					Message:  "Pipeline must not remove event.original",
 				})
@@ -73,7 +73,7 @@ func run(ctx *analyze.Context) error {
 			appendPreserveTagOnErrorIndex := findAppendPreserveTagOnError(&pipeline)
 			if appendPreserveTagOnErrorIndex != -1 {
 				ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-					Pos:      analyze.Pos{}, // TODO: Pos
+					Pos:      analyze.NewPosFromFileMetadata(pipeline.Processors[appendPreserveTagOnErrorIndex].FileMetadata),
 					Category: Name,
 					Message:  "Pipeline must append 'preserve_original_event' to tags when error.message is set",
 				})
@@ -93,7 +93,7 @@ func run(ctx *analyze.Context) error {
 			appendPreserveTagOnFailureIndex := findAppendPreserveTagOnFailure(&pipeline)
 			if appendPreserveTagOnFailureIndex != -1 {
 				ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-					Pos:      analyze.Pos{}, // TODO: Pos
+					Pos:      analyze.NewPosFromFileMetadata(pipeline.Processors[appendPreserveTagOnFailureIndex].FileMetadata),
 					Category: Name,
 					Message:  "Pipeline must append 'preserve_original_event' to tags when error.message is set",
 				})
