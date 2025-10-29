@@ -74,8 +74,6 @@ func run(ctx *analyze.Context) error {
 					pipelineAST.Modified = true
 				}
 			} else {
-				onFailureNode := yamledit.GetSequenceNode(pipelineAST.File, "$.on_failure")
-
 				// Check set event.kind
 				setEventKindIndex := findSetEventKind(&pipeline)
 				if setEventKindIndex != -1 {
@@ -94,6 +92,7 @@ func run(ctx *analyze.Context) error {
 					})
 				}
 				if ctx.Fix {
+					onFailureNode := yamledit.GetSequenceNode(pipelineAST.File, "$.on_failure")
 					if yamledit.AppendOrReplaceNode(onFailureNode, setEventKindIndex, newSetEventKind()) {
 						ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
 							Category: Name,
@@ -138,6 +137,7 @@ func run(ctx *analyze.Context) error {
 					})
 				}
 				if ctx.Fix {
+					onFailureNode := yamledit.GetSequenceNode(pipelineAST.File, "$.on_failure")
 					if yamledit.AppendOrReplaceNode(onFailureNode, setErrorMessageIndex, newSetErrorMessage(setErrorMessageType)) {
 						ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
 							Category: Name,
