@@ -39,7 +39,7 @@ var Analyzer = &analyze.Analyzer{
 
 func run(ctx *analyze.Context) error {
 	for _, ds := range ctx.Package.DataStreams {
-		for _, pipeline := range ds.Pipelines {
+		for pipelineName, pipeline := range ds.Pipelines {
 			var pipelineAST analyze.AST
 			var err error
 
@@ -48,6 +48,8 @@ func run(ctx *analyze.Context) error {
 					return err
 				}
 			}
+
+			isDefault := pipelineName == "default.yml"
 
 			// 1. No remove event.original
 			removeEventOriginalIndex := findRemoveEventOriginal(&pipeline)
@@ -69,23 +71,25 @@ func run(ctx *analyze.Context) error {
 				}
 			}
 
-			// 2. Add preserve_original_event to tags if error.message set
-			appendPreserveTagOnErrorIndex := findAppendPreserveTagOnError(&pipeline)
-			if appendPreserveTagOnErrorIndex != -1 {
-				ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-					Pos:      analyze.NewPosFromFileMetadata(pipeline.Processors[appendPreserveTagOnErrorIndex].FileMetadata),
-					Category: Name,
-					Message:  "Pipeline must append 'preserve_original_event' to tags when error.message is set",
-				})
-			}
-			if ctx.Fix {
-				processorsNode := yamledit.GetSequenceNode(pipelineAST.File, "$.processors")
-				if yamledit.AppendOrReplaceNode(processorsNode, appendPreserveTagOnErrorIndex, newAppendPreserveTagOnError()) {
-					ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
+			// 2. Add preserve_original_event to tags if error.message set (only in default pipeline)
+			if isDefault {
+				appendPreserveTagOnErrorIndex := findAppendPreserveTagOnError(&pipeline)
+				if appendPreserveTagOnErrorIndex != -1 {
+					ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
+						Pos:      analyze.NewPosFromFileMetadata(pipeline.Processors[appendPreserveTagOnErrorIndex].FileMetadata),
 						Category: Name,
-						Message:  "Modified or added append preserve_original_event to tags when error.message is set",
+						Message:  "Default pipeline must append 'preserve_original_event' to tags when error.message is set",
 					})
-					pipelineAST.Modified = true
+				}
+				if ctx.Fix {
+					processorsNode := yamledit.GetSequenceNode(pipelineAST.File, "$.processors")
+					if yamledit.AppendOrReplaceNode(processorsNode, appendPreserveTagOnErrorIndex, newAppendPreserveTagOnError()) {
+						ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
+							Category: Name,
+							Message:  "Modified or added append preserve_original_event to tags when error.message is set in default pipeline",
+						})
+						pipelineAST.Modified = true
+					}
 				}
 			}
 
