@@ -23,12 +23,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/andrewkroh/go-fleetpkg"
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/parser"
+	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
+	"github.com/taylor-swanson/package-tool/pkg/yamledit"
 
 	"github.com/taylor-swanson/package-tool/internal/analyze"
-	"github.com/taylor-swanson/package-tool/internal/yamledit"
 )
 
 const Name = "pipeline-error"
@@ -43,86 +43,75 @@ var Analyzer = &analyze.Analyzer{
 func run(ctx *analyze.Context) error {
 	for _, ds := range ctx.Package.DataStreams {
 		for _, pipeline := range ds.Pipelines {
-			var pipelineAST analyze.AST
-			var err error
-
-			if ctx.Fix {
-				if pipelineAST, err = analyze.LoadAST(pipeline.Path()); err != nil {
-					return err
-				}
-			}
-
 			if len(pipeline.OnFailure) == 0 {
-				onFailurePos := analyze.Pos{File: pipeline.Path()}
 				ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-					Pos:      onFailurePos,
+					Pos:      &analyze.Pos{File: pipeline.Path()},
 					Category: Name,
 					Message:  "Pipeline must include on_failure handler",
 				})
 
 				if ctx.Fix {
-					n := pipelineAST.File.Docs[0].Body.(*ast.MappingNode)
-					newNode := newOnFailure()
-					newNode.AddColumn(n.GetToken().Position.IndentNum)
-
-					n.Values = append(n.Values, newNode)
+					_, err := pipeline.Doc.SetKeyNode("$", "on_failure", newOnFailure(), yamledit.IndexAppend)
+					if err != nil {
+						return err
+					}
 					ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
 						Category: Name,
 						Message:  "Added pipeline on_failure handler",
 					})
-
-					pipelineAST.Modified = true
 				}
 			} else {
 				// Check set event.kind
-				setEventKindIndex := findSetEventKind(&pipeline)
+				setEventKindIndex := findSetEventKind(pipeline)
 				if setEventKindIndex != -1 {
-					if s, ok := pipeline.OnFailure[setEventKindIndex].Attributes["value"].(string); ok && s != "pipeline_error" {
+					if s, ok := pipeline.OnFailure[setEventKindIndex].GetAttributeString("value"); !ok || s != "pipeline_error" {
 						ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-							Pos:      analyze.Pos{},
+							Pos:      analyze.NewPos(pipeline.OnFailure[setEventKindIndex].Node, pipeline.Path()),
 							Category: Name,
 							Message:  "Pipeline on_failure must set event.kind to 'pipeline_error'",
 						})
 					}
 				} else {
 					ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-						Pos:      analyze.Pos{},
+						Pos:      analyze.MustPosFromPath(pipeline.Doc, "$.on_failure"),
 						Category: Name,
 						Message:  "Pipeline on_failure must set event.kind to 'pipeline_error'",
 					})
 				}
 				if ctx.Fix {
-					onFailureNode := yamledit.GetSequenceNode(pipelineAST.File, "$.on_failure")
-					if yamledit.AppendOrReplaceNode(onFailureNode, setEventKindIndex, newSetEventKind()) {
+					modified, err := pipeline.Doc.AddNode("$.on_failure", newSetEventKind(), setEventKindIndex, true)
+					if err != nil {
+						return err
+					}
+					if modified {
 						ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
 							Category: Name,
 							Message:  "Modified set event.kind",
 						})
-						pipelineAST.Modified = true
 					}
 				}
 
 				// Check set error.message
-				setErrorMessageIndex, setErrorMessageType := findSetErrorMessage(&pipeline)
+				setErrorMessageIndex, setErrorMessageType := findSetErrorMessage(pipeline)
 				if setErrorMessageIndex != -1 {
-					s, ok := pipeline.OnFailure[setErrorMessageIndex].Attributes["value"].(string)
+					s, ok := pipeline.OnFailure[setErrorMessageIndex].GetAttributeString("value")
 					if !ok {
 						ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-							Pos:      analyze.Pos{},
+							Pos:      analyze.NewPos(pipeline.OnFailure[setErrorMessageIndex].Node, pipeline.Path()),
 							Category: Name,
 							Message:  "Pipeline on_failure error.message must be set to a string value",
 						})
 					} else {
 						if !strings.Contains(s, "_ingest.on_failure_processor_tag") {
 							ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-								Pos:      analyze.Pos{},
+								Pos:      analyze.NewPos(pipeline.OnFailure[setErrorMessageIndex].Node, pipeline.Path()),
 								Category: Name,
 								Message:  "Pipeline on_failure error.message must include the processor tag ('_ingest.on_failure_processor_tag')",
 							})
 						}
 						if !strings.Contains(s, "_ingest.pipeline") {
 							ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-								Pos:      analyze.Pos{},
+								Pos:      analyze.NewPos(pipeline.OnFailure[setErrorMessageIndex].Node, pipeline.Path()),
 								Category: Name,
 								Message:  "Pipeline on_failure error.message must include the pipeline name ('_ingest.pipeline')",
 							})
@@ -131,25 +120,27 @@ func run(ctx *analyze.Context) error {
 				} else {
 					setErrorMessageType = "set"
 					ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-						Pos:      analyze.Pos{},
+						Pos:      analyze.MustPosFromPath(pipeline.Doc, "$.on_failure"),
 						Category: Name,
 						Message:  "Pipeline on_failure must set error.message",
 					})
 				}
 				if ctx.Fix {
-					onFailureNode := yamledit.GetSequenceNode(pipelineAST.File, "$.on_failure")
-					if yamledit.AppendOrReplaceNode(onFailureNode, setErrorMessageIndex, newSetErrorMessage(setErrorMessageType)) {
+					modified, err := pipeline.Doc.AddNode("$.on_failure", newSetErrorMessage(setErrorMessageType), setErrorMessageIndex, true)
+					if err != nil {
+						return err
+					}
+					if modified {
 						ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
 							Category: Name,
 							Message:  fmt.Sprintf("Modified error.message (%s)", setErrorMessageType),
 						})
-						pipelineAST.Modified = true
 					}
 				}
 			}
 
-			if ctx.Fix && pipelineAST.Modified {
-				if err = pipelineAST.WriteFile(pipeline.Path()); err != nil {
+			if ctx.Fix && pipeline.Doc.Modified() {
+				if err := pipeline.Doc.WriteFile(); err != nil {
 					return err
 				}
 			}
@@ -159,10 +150,10 @@ func run(ctx *analyze.Context) error {
 	return nil
 }
 
-func findSetEventKind(pipeline *fleetpkg.IngestPipeline) int {
+func findSetEventKind(pipeline *fleetpkg.Pipeline) int {
 	for i, proc := range pipeline.OnFailure {
 		if proc.Type == "set" {
-			if s, ok := proc.Attributes["field"].(string); ok && s == "event.kind" {
+			if s, ok := proc.GetAttributeString("field"); ok && s == "event.kind" {
 				return i
 			}
 		}
@@ -171,10 +162,10 @@ func findSetEventKind(pipeline *fleetpkg.IngestPipeline) int {
 	return -1
 }
 
-func findSetErrorMessage(pipeline *fleetpkg.IngestPipeline) (int, string) {
+func findSetErrorMessage(pipeline *fleetpkg.Pipeline) (int, string) {
 	for i, proc := range pipeline.OnFailure {
 		if proc.Type == "set" || proc.Type == "append" {
-			if s, ok := proc.Attributes["field"].(string); ok && s == "error.message" {
+			if s, ok := proc.GetAttributeString("field"); ok && s == "error.message" {
 				return i, proc.Type
 			}
 		}

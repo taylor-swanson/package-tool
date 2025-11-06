@@ -15,43 +15,42 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package analyze
+package fleetpkg
 
 import (
 	"testing"
 
-	"github.com/goccy/go-yaml/parser"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestNewPosFromPath(t *testing.T) {
+func TestLoad(t *testing.T) {
 	testCases := []struct {
-		name     string
-		filename string
-		path     string
-		want     Pos
+		name    string
+		dir     string
+		wantErr bool
 	}{
 		{
-			name:     "basic",
-			filename: "testdata/basic.yml",
-			path:     "$.processors[0]",
-			want: Pos{
-				File:   "testdata/basic.yml",
-				Path:   "$.processors[0]",
-				Line:   2,
-				Column: 8,
-			},
+			name: "ok",
+			dir:  "testdata/packages/fortinet_fortigate",
+		},
+		{
+			name:    "invalid",
+			dir:     "testdata/packages/invalid",
+			wantErr: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := parser.ParseFile(tc.filename, parser.ParseComments)
-			require.NoError(t, err)
+			got, gotErr := Load(tc.dir)
 
-			got, err := NewPosFromPath(f, tc.path)
-			require.NoError(t, err)
-			require.Equal(t, tc.want, got)
+			if tc.wantErr {
+				assert.Error(t, gotErr)
+				assert.Nil(t, got)
+			} else {
+				assert.NoError(t, gotErr)
+				assert.NotNil(t, got)
+			}
 		})
 	}
 }

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package pkg
+package fleetpkg
 
 import (
 	"errors"
@@ -24,7 +24,9 @@ import (
 	"path/filepath"
 )
 
-var ErrRootNotFound = errors.New("package root not found")
+var (
+	ErrRootNotFound = errors.New("package root not found")
+)
 
 // LocateRoot attempts to find the root of the package in the given directory.
 // If the directory is not an absolute path, it will be converted to one using

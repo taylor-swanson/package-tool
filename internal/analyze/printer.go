@@ -31,7 +31,7 @@ import (
 func JSON(w io.Writer, results map[string]Result) error {
 	type Report struct {
 		Time    string            `json:"time"`
-		Results map[string]Result `json:"results"`
+		Results map[string]Result `json:"results,omitempty"`
 	}
 
 	r := Report{
@@ -92,7 +92,7 @@ func text(w io.Writer, results map[string]Result, wantColor bool) error {
 				if _, err = fmt.Fprintf(w, " (%s)\n", d.Category); err != nil {
 					return err
 				}
-				if d.Pos.File != "" {
+				if d.Pos != nil && d.Pos.File != "" {
 					if _, err = bold.Fprintf(w, "      %s\n", d.Pos); err != nil {
 						return err
 					}
@@ -105,7 +105,7 @@ func text(w io.Writer, results map[string]Result, wantColor bool) error {
 						if _, err = red.Fprintf(w, "%s", r.Message); err != nil {
 							return err
 						}
-						if r.Pos.File != "" {
+						if r.Pos != nil && r.Pos.File != "" {
 							if _, err = bold.Fprintf(w, " %s", r.Pos); err != nil {
 								return err
 							}

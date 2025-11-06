@@ -27,7 +27,8 @@ import (
 	"strings"
 
 	"github.com/taylor-swanson/package-tool/internal/analyze"
-	"github.com/taylor-swanson/package-tool/internal/pkg"
+	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
+	"github.com/taylor-swanson/package-tool/pkg/yamledit"
 )
 
 const Name = "validations"
@@ -60,8 +61,8 @@ var Analyzer = &analyze.Analyzer{
 }
 
 func run(ctx *analyze.Context) error {
-	var validation pkg.Validation
-	err := pkg.ReadYAML(filepath.Join(ctx.Package.Path(), "validation.yml"), &validation, true)
+	var validation fleetpkg.Validation
+	_, err := yamledit.ParseDocumentFile(filepath.Join(ctx.Package.Path(), "validation.yml"), &validation)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}

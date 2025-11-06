@@ -24,9 +24,8 @@ import (
 	"fmt"
 	"hash/fnv"
 
-	"github.com/andrewkroh/go-fleetpkg"
-
 	"github.com/taylor-swanson/package-tool/internal/analyze"
+	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
 )
 
 const Name = "duplicate-processor"
@@ -69,7 +68,7 @@ func run(ctx *analyze.Context) error {
 					Pipeline:   name,
 					Index:      i,
 				}
-				if err := checkProcessor(ctx, &node, seen); err != nil {
+				if err := checkProcessor(ctx, pipeline, &node, seen); err != nil {
 					return err
 				}
 			}
@@ -79,7 +78,7 @@ func run(ctx *analyze.Context) error {
 	return nil
 }
 
-func checkProcessor(ctx *analyze.Context, node *processorNode, seen map[uint64]*processorNode) error {
+func checkProcessor(ctx *analyze.Context, pipeline *fleetpkg.Pipeline, node *processorNode, seen map[uint64]*processorNode) error {
 	var err error
 
 	if node.Hash, err = generateProcessorHash(node.Processor); err != nil {
@@ -88,11 +87,11 @@ func checkProcessor(ctx *analyze.Context, node *processorNode, seen map[uint64]*
 
 	if other, dup := seen[node.Hash]; dup {
 		ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-			Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata),
+			Pos:      analyze.NewPos(node.Processor.Node, pipeline.Path()),
 			Category: Name,
-			Message:  fmt.Sprintf("Processor %s in %s at index %d already exists in %s at index %d in data stream %s", node.Processor.Type, node.Pipeline, node.Index, other.Pipeline, other.Index, node.DataStream),
+			Message:  fmt.Sprintf("Processor %s in %s at %s already exists in %s at %s in data stream %s", node.Processor.Type, node.Pipeline, node.Processor.Node.GetPath(), other.Pipeline, other.Processor.Node.GetPath(), node.DataStream),
 			Related: []analyze.Related{{
-				Pos:     analyze.NewPosFromFileMetadata(other.Processor.FileMetadata),
+				Pos:     analyze.NewPos(other.Processor.Node, other.Pipeline),
 				Message: fmt.Sprintf("Processor first seen in %s at index %d", other.Pipeline, other.Index),
 			}},
 		})

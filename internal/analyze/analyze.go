@@ -20,16 +20,16 @@ package analyze
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
 	"strconv"
+	"strings"
 
-	"github.com/andrewkroh/go-fleetpkg"
-	"github.com/goccy/go-yaml"
 	"github.com/goccy/go-yaml/ast"
-	"github.com/goccy/go-yaml/parser"
-	"github.com/goccy/go-yaml/printer"
+
+	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
+	"github.com/taylor-swanson/package-tool/pkg/yamledit"
 )
+
+var PathCleaner = strings.NewReplacer(".", "_", " ", "_", "@", "")
 
 type Analyzer struct {
 	Name        string
@@ -39,7 +39,7 @@ type Analyzer struct {
 }
 
 type Context struct {
-	Package *fleetpkg.Integration
+	Package *fleetpkg.Package
 	Fix     bool
 	Args    []string
 
@@ -47,12 +47,12 @@ type Context struct {
 }
 
 type Result struct {
-	Findings []Finding
-	Fixes    []Fix
+	Findings []Finding `json:"findings,omitempty"`
+	Fixes    []Fix     `json:"fixes,omitempty"`
 }
 
 type Finding struct {
-	Pos      Pos       `json:"pos"`
+	Pos      *Pos      `json:"pos,omitempty"`
 	Category string    `json:"category"`
 	Message  string    `json:"message"`
 	Related  []Related `json:"related,omitempty"`
@@ -64,40 +64,12 @@ type Fix struct {
 }
 
 type Related struct {
-	Pos     Pos    `json:"pos"`
+	Pos     *Pos   `json:"pos,omitempty"`
 	Message string `json:"message"`
-}
-
-type AST struct {
-	File     *ast.File
-	Modified bool
-}
-
-// LoadAST loads an AST from filename.
-func LoadAST(filename string) (AST, error) {
-	f, err := parser.ParseFile(filename, parser.ParseComments)
-	if err != nil {
-		return AST{}, fmt.Errorf("failed to parse AST for file %q: %w", filename, err)
-	}
-
-	return AST{File: f}, nil
-}
-
-// WriteFile writes the AST to filename.
-func (a AST) WriteFile(filename string) error {
-	p := printer.Printer{}
-	d := p.PrintNode(a.File.Docs[0])
-
-	if err := os.WriteFile(filename, d, 0o644); err != nil {
-		return fmt.Errorf("failed to write AST to file %q: %w", filename, err)
-	}
-
-	return nil
 }
 
 type Pos struct {
 	File   string
-	Path   string
 	Line   int
 	Column int
 }
@@ -117,33 +89,35 @@ func (p Pos) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p.String())
 }
 
-// NewPosFromFileMetadata creates a new Pos from the given file metadata.
-func NewPosFromFileMetadata(meta fleetpkg.FileMetadata) Pos {
-	return Pos{
-		File:   meta.Path(),
-		Line:   meta.Line(),
-		Column: meta.Column(),
+func NewPos(node ast.Node, filename string) *Pos {
+	p := node.GetToken().Position
+	return &Pos{
+		File:   filename,
+		Line:   p.Line,
+		Column: p.Column,
 	}
 }
 
-// NewPosFromPath creates a new Pos from the node at path in the given file.
-func NewPosFromPath(f *ast.File, yamlPath string) (Pos, error) {
-	p, err := yaml.PathString(yamlPath)
+func NewPosFromPath(doc *yamledit.Document, path string) (*Pos, error) {
+	n, err := doc.GetNode(path)
 	if err != nil {
-		return Pos{}, err
+		return nil, err
 	}
 
-	n, err := p.FilterFile(f)
-	if err != nil {
-		return Pos{}, err
-	}
+	p := n.GetToken().Position
 
-	t := n.GetToken().Position
-
-	return Pos{
-		File:   f.Name,
-		Path:   yamlPath,
-		Line:   t.Line,
-		Column: t.Column,
+	return &Pos{
+		File:   doc.Filename(),
+		Line:   p.Line,
+		Column: p.Column,
 	}, nil
+}
+
+func MustPosFromPath(doc *yamledit.Document, path string) *Pos {
+	pos, err := NewPosFromPath(doc, path)
+	if err != nil {
+		panic(err)
+	}
+
+	return pos
 }

@@ -24,7 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/taylor-swanson/package-tool/internal/pkg"
+	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
 )
 
 const (
@@ -47,7 +47,7 @@ var listFormats = []string{
 func newCmdList() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
-		Short:   "List package contents",
+		Short:   "List packages",
 		Aliases: []string{"l"},
 		RunE:    doList,
 	}
@@ -68,7 +68,7 @@ func doList(cmd *cobra.Command, args []string) error {
 
 	var packages []string
 	for _, pkgDir := range pkgDirs {
-		manifest, err := pkg.ReadManifest(pkgDir)
+		manifest, err := fleetpkg.LoadManifest(pkgDir)
 		if err != nil {
 			slog.Error("Failed to read package", slog.String("path", pkgDir), slog.String("error", err.Error()))
 			continue

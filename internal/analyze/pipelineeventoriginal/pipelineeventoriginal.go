@@ -20,12 +20,12 @@
 package pipelineeventoriginal
 
 import (
-	"github.com/andrewkroh/go-fleetpkg"
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/parser"
 
 	"github.com/taylor-swanson/package-tool/internal/analyze"
-	"github.com/taylor-swanson/package-tool/internal/yamledit"
+	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
+	"github.com/taylor-swanson/package-tool/pkg/yamledit"
 )
 
 const Name = "pipeline-event-original"
@@ -40,81 +40,79 @@ var Analyzer = &analyze.Analyzer{
 func run(ctx *analyze.Context) error {
 	for _, ds := range ctx.Package.DataStreams {
 		for pipelineName, pipeline := range ds.Pipelines {
-			var pipelineAST analyze.AST
-			var err error
-
-			if ctx.Fix {
-				if pipelineAST, err = analyze.LoadAST(pipeline.Path()); err != nil {
-					return err
-				}
-			}
-
 			isDefault := pipelineName == "default.yml"
 
 			// 1. No remove event.original
-			removeEventOriginalIndex := findRemoveEventOriginal(&pipeline)
+			removeEventOriginalIndex := findRemoveEventOriginal(pipeline)
 			if removeEventOriginalIndex != -1 {
 				ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-					Pos:      analyze.NewPosFromFileMetadata(pipeline.Processors[removeEventOriginalIndex].FileMetadata),
+					Pos:      analyze.NewPos(pipeline.Processors[removeEventOriginalIndex].Node, pipeline.Path()),
 					Category: Name,
 					Message:  "Pipeline must not remove event.original",
 				})
 
 				if ctx.Fix {
-					processorsNode := yamledit.GetSequenceNode(pipelineAST.File, "$.processors")
-					yamledit.RemoveNode(processorsNode, removeEventOriginalIndex)
-					ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
-						Category: Name,
-						Message:  "Removed processor to remove event.original",
-					})
-					pipelineAST.Modified = true
+					modified, err := pipeline.Doc.DeleteNode(pipeline.Processors[removeEventOriginalIndex].Node.GetPath())
+					if err != nil {
+						return err
+					}
+					if modified {
+						ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
+							Category: Name,
+							Message:  "Removed processor to remove event.original",
+						})
+					}
 				}
 			}
 
 			// 2. Add preserve_original_event to tags if error.message set (only in default pipeline)
 			if isDefault {
-				appendPreserveTagOnErrorIndex := findAppendPreserveTagOnError(&pipeline)
+				appendPreserveTagOnErrorIndex := findAppendPreserveTagOnError(pipeline)
 				if appendPreserveTagOnErrorIndex != -1 {
 					ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-						Pos:      analyze.NewPosFromFileMetadata(pipeline.Processors[appendPreserveTagOnErrorIndex].FileMetadata),
+						Pos:      analyze.NewPos(pipeline.Processors[appendPreserveTagOnErrorIndex].Node, pipeline.Path()),
 						Category: Name,
 						Message:  "Default pipeline must append 'preserve_original_event' to tags when error.message is set",
 					})
 				}
 				if ctx.Fix {
-					processorsNode := yamledit.GetSequenceNode(pipelineAST.File, "$.processors")
-					if yamledit.AppendOrReplaceNode(processorsNode, appendPreserveTagOnErrorIndex, newAppendPreserveTagOnError()) {
+					modified, err := pipeline.Doc.AddNode("$.processors", newAppendPreserveTagOnError(), appendPreserveTagOnErrorIndex, true)
+					if err != nil {
+						return err
+					}
+					if modified {
 						ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
 							Category: Name,
 							Message:  "Modified or added append preserve_original_event to tags when error.message is set in default pipeline",
 						})
-						pipelineAST.Modified = true
 					}
 				}
 			}
 
 			// 3. Add preserve_original_event to tags in on_failure
-			appendPreserveTagOnFailureIndex := findAppendPreserveTagOnFailure(&pipeline)
+			appendPreserveTagOnFailureIndex := findAppendPreserveTagOnFailure(pipeline)
 			if appendPreserveTagOnFailureIndex != -1 {
 				ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-					Pos:      analyze.NewPosFromFileMetadata(pipeline.Processors[appendPreserveTagOnFailureIndex].FileMetadata),
+					Pos:      analyze.NewPos(pipeline.Processors[appendPreserveTagOnFailureIndex].Node, pipeline.Path()),
 					Category: Name,
 					Message:  "Pipeline must append 'preserve_original_event' to tags when error.message is set",
 				})
 			}
 			if ctx.Fix {
-				onFailureNode := yamledit.GetSequenceNode(pipelineAST.File, "$.on_failure")
-				if yamledit.AppendOrReplaceNode(onFailureNode, appendPreserveTagOnFailureIndex, newAppendPreserveTagOnFailure()) {
+				modified, err := pipeline.Doc.AddNode("$.on_failure", newAppendPreserveTagOnFailure(), yamledit.IndexAppend, true)
+				if err != nil {
+					return err
+				}
+				if modified {
 					ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
 						Category: Name,
 						Message:  "Modified or added append preserve_original_event to tags in pipeline on_failure",
 					})
-					pipelineAST.Modified = true
 				}
 			}
 
-			if ctx.Fix && pipelineAST.Modified {
-				if err = pipelineAST.WriteFile(pipeline.Path()); err != nil {
+			if ctx.Fix && pipeline.Doc.Modified() {
+				if err := pipeline.Doc.WriteFile(); err != nil {
 					return err
 				}
 			}
@@ -124,12 +122,12 @@ func run(ctx *analyze.Context) error {
 	return nil
 }
 
-func findRemoveEventOriginal(p *fleetpkg.IngestPipeline) int {
+func findRemoveEventOriginal(p *fleetpkg.Pipeline) int {
 	for i, proc := range p.Processors {
 		if proc.Type != "remove" {
 			continue
 		}
-		if s, ok := proc.Attributes["field"].(string); ok && s == "event.original" {
+		if s, ok := proc.GetAttributeString("field"); ok && s == "event.original" {
 			return i
 		}
 	}
@@ -137,13 +135,13 @@ func findRemoveEventOriginal(p *fleetpkg.IngestPipeline) int {
 	return -1
 }
 
-func findAppendPreserveTagOnError(p *fleetpkg.IngestPipeline) int {
+func findAppendPreserveTagOnError(p *fleetpkg.Pipeline) int {
 	for i, proc := range p.Processors {
 		if proc.Type != "append" {
 			continue
 		}
-		if s, ok := proc.Attributes["field"].(string); ok && s == "tags" {
-			if s, ok := proc.Attributes["value"].(string); ok && s == "preserve_original_event" {
+		if s, ok := proc.GetAttributeString("field"); ok && s == "tags" {
+			if s, ok := proc.GetAttributeString("value"); ok && s == "preserve_original_event" {
 				return i
 			}
 		}
@@ -152,13 +150,13 @@ func findAppendPreserveTagOnError(p *fleetpkg.IngestPipeline) int {
 	return -1
 }
 
-func findAppendPreserveTagOnFailure(p *fleetpkg.IngestPipeline) int {
+func findAppendPreserveTagOnFailure(p *fleetpkg.Pipeline) int {
 	for i, proc := range p.OnFailure {
 		if proc.Type != "append" {
 			continue
 		}
-		if s, ok := proc.Attributes["field"].(string); ok && s == "tags" {
-			if s, ok := proc.Attributes["value"].(string); ok && s == "preserve_original_event" {
+		if s, ok := proc.GetAttributeString("field"); ok && s == "tags" {
+			if s, ok := proc.GetAttributeString("value"); ok && s == "preserve_original_event" {
 				return i
 			}
 		}
