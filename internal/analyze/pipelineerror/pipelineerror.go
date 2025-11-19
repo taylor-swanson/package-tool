@@ -25,10 +25,10 @@ import (
 
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/parser"
-	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
-	"github.com/taylor-swanson/package-tool/pkg/yamledit"
 
 	"github.com/taylor-swanson/package-tool/internal/analyze"
+	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
+	"github.com/taylor-swanson/package-tool/pkg/yamledit"
 )
 
 const Name = "pipeline-error"

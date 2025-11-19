@@ -912,5 +912,12 @@ func Test_nodeEqual(t *testing.T) {
 
 		assert.True(t, nodeEqual(a.Docs[0].Body, b.Docs[0].Body))
 	})
-	t.Run("not-equal", func(t *testing.T) {})
+	t.Run("not-equal", func(t *testing.T) {
+		a, err := parser.ParseBytes([]byte(`string: "foo"`), parser.ParseComments)
+		require.NoError(t, err)
+		b, err := parser.ParseBytes([]byte(`string: "bar"`), parser.ParseComments)
+		require.NoError(t, err)
+
+		assert.False(t, nodeEqual(a.Docs[0].Body, b.Docs[0].Body))
+	})
 }
