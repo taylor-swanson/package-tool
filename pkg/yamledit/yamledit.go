@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Package yamleditold provides YAML AST editing and parsing functions.
+// Package yamledit provides YAML AST editing and parsing functions.
 package yamledit
 
 import (
@@ -36,14 +36,14 @@ import (
 )
 
 const (
+	// IndexPrepend is a shorthand for an index that prepends to a list.
 	IndexPrepend = 0
-	IndexAppend  = -1
+	// IndexAppend is a shorthand for an index that appends to a list.
+	IndexAppend = -1
 )
 
-var (
-	// ErrInvalidNodeType indicates a node was not of an expected type.
-	ErrInvalidNodeType = errors.New("invalid node type")
-)
+// ErrInvalidNodeType indicates a node was not of an expected type.
+var ErrInvalidNodeType = errors.New("invalid node type")
 
 // Document defines a YAML document.
 type Document struct {

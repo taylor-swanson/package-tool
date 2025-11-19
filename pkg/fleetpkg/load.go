@@ -24,6 +24,7 @@ import (
 	"github.com/taylor-swanson/package-tool/pkg/yamledit"
 )
 
+// Load will load a package from the given directory.
 func Load(dir string) (*Package, error) {
 	pkg := Package{
 		sourceDir: dir,
@@ -86,6 +87,7 @@ func Load(dir string) (*Package, error) {
 	return &pkg, nil
 }
 
+// LoadManifest loads a manifest from a package directory.
 func LoadManifest(dir string) (*Manifest, error) {
 	var manifest Manifest
 

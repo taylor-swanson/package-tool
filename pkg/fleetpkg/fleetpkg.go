@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package fleetpkg provides Go type for fleet packages.
 package fleetpkg
 
 import (
@@ -26,6 +27,7 @@ import (
 	"github.com/taylor-swanson/package-tool/pkg/yamledit"
 )
 
+// Package is a fleet package.
 type Package struct {
 	Manifest    Manifest
 	Input       *DataStream
@@ -34,10 +36,12 @@ type Package struct {
 	sourceDir string
 }
 
+// Path is the path to the root of the package.
 func (i *Package) Path() string {
 	return i.sourceDir
 }
 
+// Manifest is the package manifest.
 type Manifest struct {
 	Name          string `yaml:"name"`
 	Title         string `yaml:"title"`
@@ -53,8 +57,10 @@ type Manifest struct {
 	Doc *yamledit.Document `yaml:"-"`
 }
 
+// Path is the path to the manifest file.
 func (m *Manifest) Path() string { return m.Doc.Filename() }
 
+// DataStreamManifest is the data stream manifest file.
 type DataStreamManifest struct {
 	Title string `yaml:"title"`
 	Type  string `yaml:"type"`
@@ -62,8 +68,10 @@ type DataStreamManifest struct {
 	Doc *yamledit.Document `yaml:"-"`
 }
 
+// Path is the path to the manifest file.
 func (m *DataStreamManifest) Path() string { return m.Doc.Filename() }
 
+// DataStream is a data stream within the package.
 type DataStream struct {
 	Manifest  DataStreamManifest
 	Pipelines map[string]*Pipeline
@@ -71,10 +79,12 @@ type DataStream struct {
 	sourceDir string
 }
 
+// Path is the path to the data stream.
 func (d *DataStream) Path() string {
 	return d.sourceDir
 }
 
+// Pipeline is an ingest pipeline.
 type Pipeline struct {
 	Description string       `yaml:"description"`
 	Processors  []*Processor `yaml:"processors,omitempty"`
@@ -83,8 +93,10 @@ type Pipeline struct {
 	Doc *yamledit.Document `yaml:"-"`
 }
 
+// Path is the path to the pipeline.
 func (p *Pipeline) Path() string { return p.Doc.Filename() }
 
+// Processor is an ingest pipeline processor.
 type Processor struct {
 	Type       string
 	Attributes map[string]any
@@ -93,6 +105,7 @@ type Processor struct {
 	Node ast.Node
 }
 
+// GetAttribute gets an attribute of the processor.
 func (p *Processor) GetAttribute(key string) (any, bool) {
 	v, ok := p.Attributes[key]
 	if !ok {
@@ -102,6 +115,7 @@ func (p *Processor) GetAttribute(key string) (any, bool) {
 	return v, true
 }
 
+// GetAttributeString gets a string attribute of the processor.
 func (p *Processor) GetAttributeString(key string) (string, bool) {
 	v, ok := p.Attributes[key].(string)
 	if !ok {
@@ -111,6 +125,7 @@ func (p *Processor) GetAttributeString(key string) (string, bool) {
 	return v, true
 }
 
+// GetAttributeFloat gets a float attribute of the processor.
 func (p *Processor) GetAttributeFloat(key string) (float64, bool) {
 	v, ok := p.Attributes[key].(float64)
 	if !ok {
@@ -120,6 +135,7 @@ func (p *Processor) GetAttributeFloat(key string) (float64, bool) {
 	return v, true
 }
 
+// GetAttributeInt gets an int attribute of the processor.
 func (p *Processor) GetAttributeInt(key string) (int, bool) {
 	v, ok := p.Attributes[key].(int)
 	if !ok {
@@ -129,6 +145,7 @@ func (p *Processor) GetAttributeInt(key string) (int, bool) {
 	return v, true
 }
 
+// GetAttributeBool gets a bool attribute of the processor.
 func (p *Processor) GetAttributeBool(key string) (bool, bool) {
 	v, ok := p.Attributes[key].(bool)
 	if !ok {
@@ -138,6 +155,7 @@ func (p *Processor) GetAttributeBool(key string) (bool, bool) {
 	return v, true
 }
 
+// UnmarshalYAML implements a YAML unmarshaler.
 func (p *Processor) UnmarshalYAML(node ast.Node) error {
 	var procMap map[string]struct {
 		Attributes map[string]any `yaml:",inline"`
@@ -164,6 +182,7 @@ func (p *Processor) UnmarshalYAML(node ast.Node) error {
 	return nil
 }
 
+// MarshalJSON implements a JSON marshaler.
 func (p *Processor) MarshalJSON() ([]byte, error) {
 	properties := make(map[string]any, len(p.Attributes)+1)
 	for k, v := range p.Attributes {
@@ -177,6 +196,7 @@ func (p *Processor) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// Validation is the validation.yml file of a package.
 type Validation struct {
 	Errors struct {
 		ExcludeChecks []string `yaml:"exclude_checks,omitempty"`

@@ -124,7 +124,7 @@ func run(ctx *analyze.Context) error {
 	return nil
 }
 
-func setLiteralNodeString(f *ast.File, path string, value string) error {
+func setLiteralNodeString(f *ast.File, path, value string) error {
 	replacement, err := parser.ParseBytes([]byte("tmp: "+value), parser.ParseComments)
 	if err != nil {
 		return err
