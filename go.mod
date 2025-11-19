@@ -3,7 +3,6 @@ module github.com/taylor-swanson/package-tool
 go 1.25
 
 require (
-	github.com/Masterminds/semver v1.5.0
 	github.com/fatih/color v1.18.0
 	github.com/goccy/go-yaml v1.18.0
 	github.com/spf13/cobra v1.10.1
