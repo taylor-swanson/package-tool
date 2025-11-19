@@ -24,11 +24,9 @@ import (
 	"fmt"
 	"hash/fnv"
 
-	"github.com/andrewkroh/go-fleetpkg"
-	"github.com/goccy/go-yaml"
-
 	"github.com/taylor-swanson/package-tool/internal/analyze"
-	"github.com/taylor-swanson/package-tool/internal/yamledit"
+	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
+	"github.com/taylor-swanson/package-tool/pkg/yamledit"
 )
 
 const Name = "pipeline-tag"
@@ -43,8 +41,6 @@ var Analyzer = &analyze.Analyzer{
 type processorNode struct {
 	Processor *fleetpkg.Processor
 	Parent    *processorNode
-	Path      string
-	Index     int
 }
 
 func (p *processorNode) ParentProcessor() *fleetpkg.Processor {
@@ -60,30 +56,18 @@ func run(ctx *analyze.Context) error {
 		for _, pipeline := range ds.Pipelines {
 			seen := map[string]*processorNode{}
 
-			var pipelineAST analyze.AST
-			var err error
-
-			if ctx.Fix {
-				pipelineAST, err = analyze.LoadAST(pipeline.Path())
-				if err != nil {
-					return err
-				}
-			}
-
-			for i, proc := range pipeline.Processors {
+			for _, proc := range pipeline.Processors {
 				node := processorNode{
 					Processor: proc,
-					Path:      fmt.Sprintf("$.processors[%d].%s", i, proc.Type),
-					Index:     i,
 				}
 
-				if err = processTag(ctx, &pipelineAST, &node, seen); err != nil {
+				if err := processTag(ctx, pipeline, &node, seen); err != nil {
 					return err
 				}
 			}
 
-			if ctx.Fix && pipelineAST.Modified {
-				if err = pipelineAST.WriteFile(pipeline.Path()); err != nil {
+			if ctx.Fix && pipeline.Doc.Modified() {
+				if err := pipeline.Doc.WriteFile(); err != nil {
 					return err
 				}
 			}
@@ -93,33 +77,34 @@ func run(ctx *analyze.Context) error {
 	return nil
 }
 
-func processTag(ctx *analyze.Context, pipelineAST *analyze.AST, node *processorNode, seen map[string]*processorNode) error {
+func processTag(ctx *analyze.Context, pipeline *fleetpkg.Pipeline, node *processorNode, seen map[string]*processorNode) error {
 	var invalid bool
 	var err error
 
+	procPath := node.Processor.Node.GetPath()
 	tag, ok := node.Processor.Attributes["tag"].(string)
 	if ok {
 		if tag == "" {
 			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-				Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata),
+				Pos:      analyze.NewPos(node.Processor.Node, pipeline.Path()),
 				Category: Name,
-				Message:  fmt.Sprintf("Empty tag on %s processor at index %d", node.Processor.Type, node.Index),
+				Message:  fmt.Sprintf("Empty tag on %s processor at %s", node.Processor.Type, procPath),
 			})
 			invalid = true
 		} else if _, dup := seen[tag]; dup {
 			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-				Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata),
+				Pos:      analyze.NewPos(node.Processor.Node, pipeline.Path()),
 				Category: Name,
-				Message:  fmt.Sprintf("Duplicated tag on %s processor at index %d", node.Processor.Type, node.Index),
+				Message:  fmt.Sprintf("Duplicated tag on %s processor at %s", node.Processor.Type, procPath),
 			})
 			invalid = true
 
 		}
 	} else {
 		ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-			Pos:      analyze.NewPosFromFileMetadata(node.Processor.FileMetadata),
+			Pos:      analyze.NewPos(node.Processor.Node, pipeline.Path()),
 			Category: Name,
-			Message:  fmt.Sprintf("Missing or invalid tag on %s processor at index %d", node.Processor.Type, node.Index),
+			Message:  fmt.Sprintf("Missing or invalid tag on %s processor at %s", node.Processor.Type, procPath),
 		})
 		invalid = true
 	}
@@ -128,34 +113,26 @@ func processTag(ctx *analyze.Context, pipelineAST *analyze.AST, node *processorN
 		if tag, err = generateTag(node.Processor, node.ParentProcessor()); err != nil {
 			return err
 		}
-
-		p, err := yaml.PathString(node.Path + ".tag")
+		modified, err := pipeline.Doc.SetKeyValue(node.Processor.Node.GetPath(), "tag", tag, yamledit.IndexPrepend)
 		if err != nil {
 			return err
 		}
-
-		if err = yamledit.SetString(pipelineAST.File, p, tag, true); err != nil {
-			return err
+		if modified {
+			ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
+				Category: Name,
+				Message:  fmt.Sprintf("Generated tag %q for %s processor at %s", tag, node.Processor.Type, procPath),
+			})
 		}
-
-		ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
-			Category: Name,
-			Message:  fmt.Sprintf("Generated tag %q for %s processor at index %d", tag, node.Processor.Type, node.Index),
-		})
-
-		pipelineAST.Modified = true
 	}
 
 	seen[tag] = node
 
-	for i, onFailProc := range node.Processor.OnFailure {
+	for _, onFailProc := range node.Processor.OnFailure {
 		onFailProcNode := &processorNode{
 			Processor: onFailProc,
 			Parent:    node,
-			Path:      fmt.Sprintf("%s.on_failure[%d].%s", node.Path, i, onFailProc.Type),
-			Index:     i,
 		}
-		if err = processTag(ctx, pipelineAST, onFailProcNode, seen); err != nil {
+		if err = processTag(ctx, pipeline, onFailProcNode, seen); err != nil {
 			return err
 		}
 	}
@@ -173,13 +150,13 @@ func generateTag(proc, parent *fleetpkg.Processor) (string, error) {
 	if !ok || field == "" {
 		return proc.Type + "_" + hash, nil
 	}
-	field = yamledit.PathCleaner.Replace(field)
+	field = analyze.PathCleaner.Replace(field)
 
 	targetField, ok := proc.Attributes["target_field"].(string)
 	if !ok || targetField == "" {
 		return fmt.Sprintf("%s_%s_%s", proc.Type, field, hash), nil
 	}
-	targetField = yamledit.PathCleaner.Replace(targetField)
+	targetField = analyze.PathCleaner.Replace(targetField)
 
 	return fmt.Sprintf("%s_%s_to_%s_%s", proc.Type, field, targetField, hash), nil
 }

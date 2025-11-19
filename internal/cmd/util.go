@@ -23,7 +23,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/taylor-swanson/package-tool/internal/pkg"
+	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
 )
 
 func filterPackages(dirs []string, flags *pflag.FlagSet) ([]string, error) {
@@ -38,13 +38,13 @@ func filterPackages(dirs []string, flags *pflag.FlagSet) ([]string, error) {
 		dirs = []string{"."}
 	}
 	for _, dir := range dirs {
-		root, err := pkg.LocateRoot(dir)
+		root, err := fleetpkg.LocateRoot(dir)
 		if err != nil {
 			slog.Error("Failed to locate package root directory", slog.String("path", dir), slog.String("error", err.Error()))
 			continue
 		}
 
-		manifest, err := pkg.ReadManifest(root)
+		manifest, err := fleetpkg.LoadManifest(root)
 		if err != nil {
 			slog.Error("Failed to read package", slog.String("path", root), slog.String("error", err.Error()))
 			continue

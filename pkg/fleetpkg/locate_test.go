@@ -15,8 +15,41 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package yamledit
+package fleetpkg
 
-import "strings"
+import (
+	"testing"
 
-var PathCleaner = strings.NewReplacer(".", "_", " ", "_", "@", "")
+	"github.com/stretchr/testify/assert"
+)
+
+func TestLocateRoot(t *testing.T) {
+	testCases := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{
+			name: "ok",
+			path: "testdata/packages/fortinet_fortigate",
+		},
+		{
+			name:    "invalid",
+			path:    "testdata/packages/invalid",
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotErr := LocateRoot(tc.path)
+
+			if tc.wantErr {
+				assert.Error(t, gotErr)
+			} else {
+				assert.NoError(t, gotErr)
+				assert.Contains(t, got, tc.path)
+			}
+		})
+	}
+}

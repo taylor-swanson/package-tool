@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package pkg
+package fleetpkg
 
 import (
 	"errors"
@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 )
 
+// ErrRootNotFound is an error indicating the package root could not be found.
 var ErrRootNotFound = errors.New("package root not found")
 
 // LocateRoot attempts to find the root of the package in the given directory.

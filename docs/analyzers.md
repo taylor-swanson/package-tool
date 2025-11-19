@@ -24,6 +24,14 @@ Check for and fix issues with `event.original` handling in ingest pipelines.
 package-tool analyze pipeline-event-original
 ```
 
+## pipeline-null-ctx
+
+Check for and fix issues with unnecessary null-safe operators with ctx in ingest pipelines.
+
+```shell
+package-tool analyze pipeline-null-ctx
+```
+
 ## pipeline-tag
 
 Check for and fix issues with ingest pipeline processor tags.

@@ -20,9 +20,8 @@
 package processorfield
 
 import (
-	"github.com/andrewkroh/go-fleetpkg"
-
 	"github.com/taylor-swanson/package-tool/internal/analyze"
+	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
 )
 
 const Name = "processor-field"
@@ -48,10 +47,10 @@ func run(ctx *analyze.Context) error {
 	for _, ds := range ctx.Package.DataStreams {
 		for _, pipeline := range ds.Pipelines {
 			for _, proc := range pipeline.Processors {
-				findInProcessor(ctx, proc, field)
+				findInProcessor(ctx, pipeline, proc, field)
 			}
 			for _, proc := range pipeline.OnFailure {
-				findInProcessor(ctx, proc, field)
+				findInProcessor(ctx, pipeline, proc, field)
 			}
 		}
 	}
@@ -59,11 +58,11 @@ func run(ctx *analyze.Context) error {
 	return nil
 }
 
-func findInProcessor(ctx *analyze.Context, proc *fleetpkg.Processor, field string) {
+func findInProcessor(ctx *analyze.Context, pipeline *fleetpkg.Pipeline, proc *fleetpkg.Processor, field string) {
 	for _, k := range findKeys {
 		if s, ok := proc.Attributes[k]; ok && field == s {
 			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-				Pos:      analyze.NewPosFromFileMetadata(proc.FileMetadata),
+				Pos:      analyze.NewPos(proc.Node, pipeline.Path()),
 				Category: Name,
 				Message:  "Found usage",
 			})
