@@ -118,11 +118,11 @@ func PrintText(w io.Writer, report *Report, wantColor bool) error {
 						return err
 					}
 				case SeverityError:
-					if _, err = red.Fprintf(w, "ERROR: "+issue.Message); err != nil {
+					if _, err = red.Fprint(w, "ERROR: "+issue.Message); err != nil {
 						return err
 					}
 				case SeverityDeprecated:
-					if _, err = yellow.Fprintf(w, "DEPRECATED: "+issue.Message); err != nil {
+					if _, err = yellow.Fprint(w, "DEPRECATED: "+issue.Message); err != nil {
 						return err
 					}
 				}

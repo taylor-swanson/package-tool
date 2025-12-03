@@ -109,7 +109,6 @@ func run(pass *analyze.Pass) error {
 
 	// Docs structure
 	if showDocsEnforced {
-
 		if !validation.DocsStructureEnforced.Enabled {
 			var pos token.Position
 			if pos, err = analyze.NewYAMLPathPosition(validation.Doc.AST(), "$.docs_structure_enforced.enabled"); err != nil {

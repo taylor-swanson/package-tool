@@ -97,7 +97,7 @@ func newCmdAnalyze() *cobra.Command {
 }
 
 func printAnalyzers(w io.Writer) {
-	tw := tabwriter.NewWriter(os.Stderr, 0, 2, 3, ' ', 0)
+	tw := tabwriter.NewWriter(w, 0, 2, 3, ' ', 0)
 	for _, a := range analyzers {
 		var fixStr string
 		if a.CanFix {
@@ -106,7 +106,7 @@ func printAnalyzers(w io.Writer) {
 		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n", a.Name, a.Doc, fixStr)
 	}
 	_ = tw.Flush()
-	_, _ = fmt.Fprintln(os.Stderr, "")
+	_, _ = fmt.Fprintln(w, "")
 }
 
 func doAnalyze(cmd *cobra.Command, args []string) error {
@@ -139,7 +139,6 @@ func doAnalyze(cmd *cobra.Command, args []string) error {
 	}
 
 	fix, _ := cmd.Flags().GetBool("fix")
-	args, _ = cmd.Flags().GetStringSlice("args")
 
 	report := analyze.Report{
 		Timestamp: time.Now(),

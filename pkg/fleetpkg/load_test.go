@@ -42,7 +42,7 @@ func TestLoad(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, gotErr := Load(tc.dir)
+			got, gotErr := Load(tc.dir, LoadModeFull)
 
 			if tc.wantErr {
 				assert.Error(t, gotErr)

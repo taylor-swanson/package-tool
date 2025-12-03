@@ -19,13 +19,19 @@ package analyze
 
 import "encoding/json"
 
+// Severity defines a severity level for analyzer issues.
 type Severity int
 
 const (
+	// SeverityInfo is an informational message from an analyzer.
 	SeverityInfo Severity = iota
+	// SeverityHint is a hint or suggestion from an analyzer.
 	SeverityHint
+	// SeverityWarn is a warning from an analyzer.
 	SeverityWarn
+	// SeverityError is an error from an analyzer.
 	SeverityError
+	// SeverityDeprecated is a deprecation notice from an analyzer.
 	SeverityDeprecated
 )
 

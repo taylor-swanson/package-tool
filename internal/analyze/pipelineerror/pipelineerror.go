@@ -134,7 +134,6 @@ func run(pass *analyze.Pass) error {
 					if _, err := pipeline.Doc.AddNode("$.on_failure", newSetErrorMessage(setErrorMessageType), setErrorMessageIndex, true); err != nil {
 						return err
 					}
-
 				}
 			}
 

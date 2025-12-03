@@ -24,6 +24,7 @@ import (
 	"github.com/taylor-swanson/package-tool/pkg/yamledit"
 )
 
+// LoadMode defines a method by which a package is loaded.
 type LoadMode int
 
 const (
