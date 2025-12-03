@@ -31,9 +31,9 @@ import (
 const Name = "duplicate-processor"
 
 var Analyzer = &analyze.Analyzer{
-	Name:        Name,
-	Description: "Find processors duplicated in ingest pipelines",
-	Run:         run,
+	Name: Name,
+	Doc:  "Find processors duplicated in ingest pipelines",
+	Run:  run,
 }
 
 type processorNode struct {
@@ -44,8 +44,8 @@ type processorNode struct {
 	Index      int
 }
 
-func run(ctx *analyze.Context) error {
-	for dsName, ds := range ctx.Package.DataStreams {
+func run(pass *analyze.Pass) error {
+	for dsName, ds := range pass.Package.DataStreams {
 		seen := map[uint64]*processorNode{}
 
 		var pipelineNames []string
@@ -68,7 +68,9 @@ func run(ctx *analyze.Context) error {
 					Pipeline:   name,
 					Index:      i,
 				}
-				if err := checkProcessor(ctx, pipeline, &node, seen); err != nil {
+				procIssues, err := checkProcessor(pipeline, &node, seen)
+				pass.Issues = append(pass.Issues, procIssues...)
+				if err != nil {
 					return err
 				}
 			}
@@ -78,20 +80,22 @@ func run(ctx *analyze.Context) error {
 	return nil
 }
 
-func checkProcessor(ctx *analyze.Context, pipeline *fleetpkg.Pipeline, node *processorNode, seen map[uint64]*processorNode) error {
+func checkProcessor(pipeline *fleetpkg.Pipeline, node *processorNode, seen map[uint64]*processorNode) ([]analyze.Issue, error) {
+	var issues []analyze.Issue
 	var err error
 
 	if node.Hash, err = generateProcessorHash(node.Processor); err != nil {
-		return fmt.Errorf("unable to hash processor at index %d in pipeline %q: %w", node.Index, node.Pipeline, err)
+		return nil, fmt.Errorf("unable to hash processor at index %d in pipeline %q: %w", node.Index, node.Pipeline, err)
 	}
 
 	if other, dup := seen[node.Hash]; dup {
-		ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-			Pos:      analyze.NewPos(node.Processor.Node, pipeline.Path()),
-			Category: Name,
+		issues = append(issues, analyze.Issue{
+			Analyzer: Name,
 			Message:  fmt.Sprintf("Processor %s in %s at %s already exists in %s at %s in data stream %s", node.Processor.Type, node.Pipeline, node.Processor.Node.GetPath(), other.Pipeline, other.Processor.Node.GetPath(), node.DataStream),
+			Severity: analyze.SeverityWarn,
+			Pos:      analyze.NewYAMLNodePosition(pipeline.Doc.AST(), node.Processor.Node),
 			Related: []analyze.Related{{
-				Pos:     analyze.NewPos(other.Processor.Node, other.Pipeline),
+				Pos:     analyze.NewYAMLNodePosition(pipeline.Doc.AST(), other.Processor.Node),
 				Message: fmt.Sprintf("Processor first seen in %s at index %d", other.Pipeline, other.Index),
 			}},
 		})
@@ -99,7 +103,7 @@ func checkProcessor(ctx *analyze.Context, pipeline *fleetpkg.Pipeline, node *pro
 		seen[node.Hash] = node
 	}
 
-	return nil
+	return issues, nil
 }
 
 func generateProcessorHash(proc *fleetpkg.Processor) (uint64, error) {

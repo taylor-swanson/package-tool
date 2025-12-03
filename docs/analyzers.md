@@ -45,7 +45,7 @@ package-tool analyze pipeline-tag
 Check for usages of `FIELD` in ingest pipeline processors.
 
 ```shell
-package-tool analyze processor-field --args FIELD
+package-tool analyze processor-field --processor-field.name FIELD
 ```
 
 ## validations
@@ -61,5 +61,5 @@ Note: Multiple args may be provided, separated by commas.
 - `<validation>` Filter for package-spec exclude checks (i.e., SVR00004).
 
 ```shell
-package-tool analyze processor-field [--args VALIDATION1,VALIDATION2]
+package-tool analyze processor-field [--validations.filter VALIDATION1,VALIDATION2]
 ```

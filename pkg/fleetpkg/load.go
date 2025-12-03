@@ -24,8 +24,22 @@ import (
 	"github.com/taylor-swanson/package-tool/pkg/yamledit"
 )
 
+// LoadMode defines a method by which a package is loaded.
+type LoadMode int
+
+const (
+	// LoadModeFull loads all files in a package.
+	LoadModeFull LoadMode = iota
+	// LoadModePipelineOnly loads only pipeline and manifest files from a package.
+	LoadModePipelineOnly
+	// LoadModeFieldsOnly loads only field and manifest files from a package.
+	LoadModeFieldsOnly
+	// LoadModeManifestOnly loads only the manifest files from a package.
+	LoadModeManifestOnly
+)
+
 // Load will load a package from the given directory.
-func Load(dir string) (*Package, error) {
+func Load(dir string, mode LoadMode) (*Package, error) {
 	pkg := Package{
 		sourceDir: dir,
 	}
@@ -66,20 +80,22 @@ func Load(dir string) (*Package, error) {
 			// -----------------------------------------------------------------
 			// Pipelines
 
-			pipelines, err := filepath.Glob(filepath.Join(ds.sourceDir, "elasticsearch/ingest_pipeline/*.yml"))
-			if err != nil {
-				return nil, err
-			}
-
-			if len(pipelines) > 0 {
-				ds.Pipelines = map[string]*Pipeline{}
-			}
-			for _, pipelinePath := range pipelines {
-				var pipeline Pipeline
-				if _, err = yamledit.ParseDocumentFile(pipelinePath, &pipeline); err != nil {
+			if mode == LoadModeFull || mode == LoadModePipelineOnly {
+				pipelines, err := filepath.Glob(filepath.Join(ds.sourceDir, "elasticsearch/ingest_pipeline/*.yml"))
+				if err != nil {
 					return nil, err
 				}
-				ds.Pipelines[filepath.Base(pipelinePath)] = &pipeline
+
+				if len(pipelines) > 0 {
+					ds.Pipelines = map[string]*Pipeline{}
+				}
+				for _, pipelinePath := range pipelines {
+					var pipeline Pipeline
+					if _, err = yamledit.ParseDocumentFile(pipelinePath, &pipeline); err != nil {
+						return nil, err
+					}
+					ds.Pipelines[filepath.Base(pipelinePath)] = &pipeline
+				}
 			}
 		}
 	}

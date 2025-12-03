@@ -21,6 +21,7 @@ package validations
 import (
 	"errors"
 	"fmt"
+	"go/token"
 	"os"
 	"path/filepath"
 	"slices"
@@ -42,8 +43,7 @@ var excludeCheckDesc = map[string]string{
 	"SVR00003": "Dangling object IDs",
 	"SVR00004": "References in dashboard",
 	"SVR00005": "Kibana version for saved tags",
-	"SVR00006": "Processor tag missgin",
-	"SVR00007": "Processor tag duplicated",
+	"SVR00006": "Processor tag missing",
 }
 
 func fmtExcludeCheckDesc(id string) string {
@@ -55,14 +55,20 @@ func fmtExcludeCheckDesc(id string) string {
 }
 
 var Analyzer = &analyze.Analyzer{
-	Name:        Name,
-	Description: "Find usages of validations in packages",
-	Run:         run,
+	Name: Name,
+	Doc:  "Find usages of validations in packages",
+	Run:  run,
 }
 
-func run(ctx *analyze.Context) error {
+var filters []string
+
+func init() {
+	Analyzer.Flags.StringSliceVar(&filters, "filters", nil, "comma separated list of validation codes")
+}
+
+func run(pass *analyze.Pass) error {
 	var validation fleetpkg.Validation
-	_, err := yamledit.ParseDocumentFile(filepath.Join(ctx.Package.Path(), "validation.yml"), &validation)
+	_, err := yamledit.ParseDocumentFile(filepath.Join(pass.Package.Path(), "validation.yml"), &validation)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
@@ -71,21 +77,27 @@ func run(ctx *analyze.Context) error {
 	}
 
 	// Exclude checks
-	for _, v := range validation.Errors.ExcludeChecks {
-		if len(ctx.Args) > 0 {
-			if !slices.Contains(ctx.Args, v) {
+	for i, v := range validation.Errors.ExcludeChecks {
+		if len(filters) > 0 {
+			if !slices.Contains(filters, v) {
 				continue
 			}
 		}
-		ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-			Category: Name,
+		pos, err := analyze.NewYAMLPathPosition(validation.Doc.AST(), fmt.Sprintf("$.errors.exclude_checks[%d]", i))
+		if err != nil {
+			return err
+		}
+		pass.Issues = append(pass.Issues, analyze.Issue{
+			Analyzer: Name,
 			Message:  fmtExcludeCheckDesc(v),
+			Severity: analyze.SeverityWarn,
+			Pos:      pos,
 		})
 	}
 
 	var showDocsEnforced bool
-	if len(ctx.Args) > 0 {
-		for _, a := range ctx.Args {
+	if len(filters) > 0 {
+		for _, a := range filters {
 			if strings.HasPrefix(a, "DOCS") {
 				showDocsEnforced = true
 				break
@@ -98,21 +110,34 @@ func run(ctx *analyze.Context) error {
 	// Docs structure
 	if showDocsEnforced {
 		if !validation.DocsStructureEnforced.Enabled {
-			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-				Category: Name,
+			var pos token.Position
+			if pos, err = analyze.NewYAMLPathPosition(validation.Doc.AST(), "$.docs_structure_enforced.enabled"); err != nil {
+				pos = token.Position{Filename: validation.Doc.Filename()}
+			}
+
+			pass.Issues = append(pass.Issues, analyze.Issue{
+				Analyzer: Name,
 				Message:  "Docs structure is not enforced",
+				Severity: analyze.SeverityWarn,
+				Pos:      pos,
 			})
 		} else {
-			for _, skip := range validation.DocsStructureEnforced.Skip {
-				if len(ctx.Args) > 0 {
-					if !slices.Contains(ctx.Args, skip.Title) {
+			for i, skip := range validation.DocsStructureEnforced.Skip {
+				if len(filters) > 0 {
+					if !slices.Contains(filters, skip.Title) {
 						continue
 					}
 				}
 
-				ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-					Category: Name,
+				pos, err := analyze.NewYAMLPathPosition(validation.Doc.AST(), fmt.Sprintf("$.docs_structure_enforced.skip[%d]", i))
+				if err != nil {
+					return err
+				}
+				pass.Issues = append(pass.Issues, analyze.Issue{
+					Analyzer: Name,
 					Message:  "Docs structure skip: " + skip.Title,
+					Severity: analyze.SeverityWarn,
+					Pos:      pos,
 				})
 			}
 		}

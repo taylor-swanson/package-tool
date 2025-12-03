@@ -15,42 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package fleetpkg
+package analyze
 
-import (
-	"testing"
+import "time"
 
-	"github.com/stretchr/testify/assert"
-)
+type IssueReport struct {
+	Issues []Issue `json:"issues,omitempty"`
+}
 
-func TestLoad(t *testing.T) {
-	testCases := []struct {
-		name    string
-		dir     string
-		wantErr bool
-	}{
-		{
-			name: "ok",
-			dir:  "testdata/packages/fortinet_fortigate",
-		},
-		{
-			name:    "invalid",
-			dir:     "testdata/packages/invalid",
-			wantErr: true,
-		},
-	}
+type PackageReport struct {
+	Analyzers map[string]IssueReport `json:"analyzers,omitempty"`
+}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, gotErr := Load(tc.dir, LoadModeFull)
-
-			if tc.wantErr {
-				assert.Error(t, gotErr)
-				assert.Nil(t, got)
-			} else {
-				assert.NoError(t, gotErr)
-				assert.NotNil(t, got)
-			}
-		})
-	}
+type Report struct {
+	Timestamp time.Time                `json:"timestamp"`
+	Analyzers []string                 `json:"analyzers,omitempty"`
+	Packages  []string                 `json:"packages,omitempty"`
+	Reports   map[string]PackageReport `json:"reports,omitempty"`
 }

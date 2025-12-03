@@ -15,42 +15,40 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package fleetpkg
+package analyze
 
 import (
-	"testing"
+	"go/token"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
 )
 
-func TestLoad(t *testing.T) {
-	testCases := []struct {
-		name    string
-		dir     string
-		wantErr bool
-	}{
-		{
-			name: "ok",
-			dir:  "testdata/packages/fortinet_fortigate",
-		},
-		{
-			name:    "invalid",
-			dir:     "testdata/packages/invalid",
-			wantErr: true,
-		},
+// NewYAMLPathPosition creates a new position based on a YAML file and path.
+func NewYAMLPathPosition(f *ast.File, path string) (token.Position, error) {
+	p, err := yaml.PathString(path)
+	if err != nil {
+		return token.Position{}, err
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, gotErr := Load(tc.dir, LoadModeFull)
+	n, err := p.FilterFile(f)
+	if err != nil {
+		return token.Position{}, err
+	}
+	if n == nil {
+		return token.Position{}, yaml.ErrNotFoundNode
+	}
 
-			if tc.wantErr {
-				assert.Error(t, gotErr)
-				assert.Nil(t, got)
-			} else {
-				assert.NoError(t, gotErr)
-				assert.NotNil(t, got)
-			}
-		})
+	return NewYAMLNodePosition(f, n), nil
+}
+
+// NewYAMLNodePosition creates a new position based on a YAML file and node.
+func NewYAMLNodePosition(f *ast.File, node ast.Node) token.Position {
+	t := node.GetToken()
+
+	return token.Position{
+		Filename: f.Name,
+		Line:     t.Position.Line,
+		Column:   t.Position.Column,
 	}
 }

@@ -15,42 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package fleetpkg
+package analyze
 
-import (
-	"testing"
+import "go/token"
 
-	"github.com/stretchr/testify/assert"
-)
+type Issue struct {
+	Analyzer string         `json:"analyzer"`
+	Message  string         `json:"message"`
+	Severity Severity       `json:"severity"`
+	Pos      token.Position `json:"pos"`
+	Related  []Related      `json:"related,omitempty"`
+}
 
-func TestLoad(t *testing.T) {
-	testCases := []struct {
-		name    string
-		dir     string
-		wantErr bool
-	}{
-		{
-			name: "ok",
-			dir:  "testdata/packages/fortinet_fortigate",
-		},
-		{
-			name:    "invalid",
-			dir:     "testdata/packages/invalid",
-			wantErr: true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, gotErr := Load(tc.dir, LoadModeFull)
-
-			if tc.wantErr {
-				assert.Error(t, gotErr)
-				assert.Nil(t, got)
-			} else {
-				assert.NoError(t, gotErr)
-				assert.NotNil(t, got)
-			}
-		})
-	}
+type Related struct {
+	Pos     token.Position `json:"pos"`
+	Message string         `json:"message"`
 }

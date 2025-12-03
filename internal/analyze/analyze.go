@@ -19,105 +19,26 @@
 package analyze
 
 import (
-	"encoding/json"
-	"strconv"
 	"strings"
 
-	"github.com/goccy/go-yaml/ast"
+	"github.com/spf13/pflag"
 
 	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
-	"github.com/taylor-swanson/package-tool/pkg/yamledit"
 )
 
 var PathCleaner = strings.NewReplacer(".", "_", " ", "_", "@", "")
 
 type Analyzer struct {
-	Name        string
-	Description string
-	CanFix      bool
-	Run         func(ctx *Context) error
+	Name     string
+	Doc      string
+	CanFix   bool
+	Flags    pflag.FlagSet
+	Run      func(pass *Pass) error
+	LoadMode fleetpkg.LoadMode
 }
 
-type Context struct {
+type Pass struct {
 	Package *fleetpkg.Package
 	Fix     bool
-	Args    []string
-
-	Result Result
-}
-
-type Result struct {
-	Findings []Finding `json:"findings,omitempty"`
-	Fixes    []Fix     `json:"fixes,omitempty"`
-}
-
-type Finding struct {
-	Pos      *Pos      `json:"pos,omitempty"`
-	Category string    `json:"category"`
-	Message  string    `json:"message"`
-	Related  []Related `json:"related,omitempty"`
-}
-
-type Fix struct {
-	Category string `json:"category"`
-	Message  string `json:"message"`
-}
-
-type Related struct {
-	Pos     *Pos   `json:"pos,omitempty"`
-	Message string `json:"message"`
-}
-
-type Pos struct {
-	File   string
-	Line   int
-	Column int
-}
-
-func (p Pos) String() string {
-	if p.Line == 0 {
-		return p.File
-	}
-	if p.Column == 0 {
-		return p.File + ":" + strconv.Itoa(p.Line)
-	}
-
-	return p.File + ":" + strconv.Itoa(p.Line) + ":" + strconv.Itoa(p.Column)
-}
-
-func (p Pos) MarshalJSON() ([]byte, error) {
-	return json.Marshal(p.String())
-}
-
-func NewPos(node ast.Node, filename string) *Pos {
-	p := node.GetToken().Position
-	return &Pos{
-		File:   filename,
-		Line:   p.Line,
-		Column: p.Column,
-	}
-}
-
-func NewPosFromPath(doc *yamledit.Document, path string) (*Pos, error) {
-	n, err := doc.GetNode(path)
-	if err != nil {
-		return nil, err
-	}
-
-	p := n.GetToken().Position
-
-	return &Pos{
-		File:   doc.Filename(),
-		Line:   p.Line,
-		Column: p.Column,
-	}, nil
-}
-
-func MustPosFromPath(doc *yamledit.Document, path string) *Pos {
-	pos, err := NewPosFromPath(doc, path)
-	if err != nil {
-		panic(err)
-	}
-
-	return pos
+	Issues  []Issue
 }
