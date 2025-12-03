@@ -31,36 +31,29 @@ import (
 const Name = "pipeline-event-original"
 
 var Analyzer = &analyze.Analyzer{
-	Name:        Name,
-	Description: "Find and fix ingest pipeline event.original issues",
-	CanFix:      true,
-	Run:         run,
+	Name:   Name,
+	Doc:    "Find and fix ingest pipeline event.original issues",
+	CanFix: true,
+	Run:    run,
 }
 
-func run(ctx *analyze.Context) error {
-	for _, ds := range ctx.Package.DataStreams {
+func run(pass *analyze.Pass) error {
+	for _, ds := range pass.Package.DataStreams {
 		for pipelineName, pipeline := range ds.Pipelines {
 			isDefault := pipelineName == "default.yml"
 
 			// 1. No remove event.original
 			removeEventOriginalIndex := findRemoveEventOriginal(pipeline)
 			if removeEventOriginalIndex != -1 {
-				ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-					Pos:      analyze.NewPos(pipeline.Processors[removeEventOriginalIndex].Node, pipeline.Path()),
-					Category: Name,
+				pass.Issues = append(pass.Issues, analyze.Issue{
+					Analyzer: Name,
 					Message:  "Pipeline must not remove event.original",
+					Severity: analyze.SeverityWarn,
+					Pos:      analyze.NewYAMLNodePosition(pipeline.Doc.AST(), pipeline.Processors[removeEventOriginalIndex].Node),
 				})
-
-				if ctx.Fix {
-					modified, err := pipeline.Doc.DeleteNode(pipeline.Processors[removeEventOriginalIndex].Node.GetPath())
-					if err != nil {
+				if pass.Fix {
+					if _, err := pipeline.Doc.DeleteNode(pipeline.Processors[removeEventOriginalIndex].Node.GetPath()); err != nil {
 						return err
-					}
-					if modified {
-						ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
-							Category: Name,
-							Message:  "Removed processor to remove event.original",
-						})
 					}
 				}
 			}
@@ -69,22 +62,16 @@ func run(ctx *analyze.Context) error {
 			if isDefault {
 				appendPreserveTagOnErrorIndex := findAppendPreserveTagOnError(pipeline)
 				if appendPreserveTagOnErrorIndex != -1 {
-					ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-						Pos:      analyze.NewPos(pipeline.Processors[appendPreserveTagOnErrorIndex].Node, pipeline.Path()),
-						Category: Name,
+					pass.Issues = append(pass.Issues, analyze.Issue{
+						Analyzer: Name,
 						Message:  "Default pipeline must append 'preserve_original_event' to tags when error.message is set",
+						Severity: analyze.SeverityWarn,
+						Pos:      analyze.NewYAMLNodePosition(pipeline.Doc.AST(), pipeline.Processors[appendPreserveTagOnErrorIndex].Node),
 					})
 				}
-				if ctx.Fix {
-					modified, err := pipeline.Doc.AddNode("$.processors", newAppendPreserveTagOnError(), appendPreserveTagOnErrorIndex, true)
-					if err != nil {
+				if pass.Fix {
+					if _, err := pipeline.Doc.AddNode("$.processors", newAppendPreserveTagOnError(), appendPreserveTagOnErrorIndex, true); err != nil {
 						return err
-					}
-					if modified {
-						ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
-							Category: Name,
-							Message:  "Modified or added append preserve_original_event to tags when error.message is set in default pipeline",
-						})
 					}
 				}
 			}
@@ -92,26 +79,20 @@ func run(ctx *analyze.Context) error {
 			// 3. Add preserve_original_event to tags in on_failure
 			appendPreserveTagOnFailureIndex := findAppendPreserveTagOnFailure(pipeline)
 			if appendPreserveTagOnFailureIndex != -1 {
-				ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-					Pos:      analyze.NewPos(pipeline.Processors[appendPreserveTagOnFailureIndex].Node, pipeline.Path()),
-					Category: Name,
-					Message:  "Pipeline must append 'preserve_original_event' to tags when error.message is set",
+				pass.Issues = append(pass.Issues, analyze.Issue{
+					Analyzer: Name,
+					Message:  "Default pipeline must append 'preserve_original_event' to tags when error.message is set",
+					Severity: analyze.SeverityWarn,
+					Pos:      analyze.NewYAMLNodePosition(pipeline.Doc.AST(), pipeline.Processors[appendPreserveTagOnFailureIndex].Node),
 				})
 			}
-			if ctx.Fix {
-				modified, err := pipeline.Doc.AddNode("$.on_failure", newAppendPreserveTagOnFailure(), yamledit.IndexAppend, true)
-				if err != nil {
+			if pass.Fix {
+				if _, err := pipeline.Doc.AddNode("$.on_failure", newAppendPreserveTagOnFailure(), yamledit.IndexAppend, true); err != nil {
 					return err
-				}
-				if modified {
-					ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
-						Category: Name,
-						Message:  "Modified or added append preserve_original_event to tags in pipeline on_failure",
-					})
 				}
 			}
 
-			if ctx.Fix && pipeline.Doc.Modified() {
+			if pass.Fix && pipeline.Doc.Modified() {
 				if err := pipeline.Doc.WriteFile(); err != nil {
 					return err
 				}

@@ -20,12 +20,15 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/taylor-swanson/package-tool/internal/analyze"
 	"github.com/taylor-swanson/package-tool/internal/analyze/duplicateprocessor"
@@ -60,41 +63,47 @@ var analyzers = []*analyze.Analyzer{
 	validations.Analyzer,
 }
 
-func getAnalyzer(name string) (*analyze.Analyzer, bool) {
+func getAnalyzer(name string) *analyze.Analyzer {
 	for _, a := range analyzers {
 		if a.Name == name {
-			return a, true
+			return a
 		}
 	}
 
-	return nil, false
+	return nil
 }
 
 func newCmdAnalyze() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "analyze ANALYZER [DIR ...]",
+		Use:     "analyze ANALYZER[,ANALYZER...] [DIR ...]",
 		Short:   "Analyze and fix package issues",
 		Aliases: []string{"a"},
 		RunE:    doAnalyze,
 	}
 
-	cmd.Flags().Bool("fix", false, "apply fixes suggested by analyzer (if applicable)")
+	cmd.Flags().Bool("fix", false, "apply fixes suggested by the analyzers (if applicable)")
 	cmd.Flags().Bool("list", false, "list available analyzers")
-	cmd.Flags().Bool("exclude-no-findings", false, "exclude packages with no findings from output")
 	cmd.Flags().StringP("output", "o", analyzeFormatTextColor, "output format (choose from: "+strings.Join(analyzeFormats, ", ")+")")
-	cmd.Flags().StringSliceP("args", "a", nil, "extra arguments to pass to analyzer")
+
+	for _, a := range analyzers {
+		prefix := a.Name + "."
+		a.Flags.VisitAll(func(f *pflag.Flag) {
+			name := prefix + f.Name
+			cmd.Flags().Var(f.Value, name, f.Usage)
+		})
+	}
 
 	return cmd
 }
 
-func printAnalyzers() {
+func printAnalyzers(w io.Writer) {
 	tw := tabwriter.NewWriter(os.Stderr, 0, 2, 3, ' ', 0)
 	for _, a := range analyzers {
 		var fixStr string
 		if a.CanFix {
 			fixStr = "(FIX)"
 		}
-		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n", a.Name, a.Description, fixStr)
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n", a.Name, a.Doc, fixStr)
 	}
 	_ = tw.Flush()
 	_, _ = fmt.Fprintln(os.Stderr, "")
@@ -102,22 +111,26 @@ func printAnalyzers() {
 
 func doAnalyze(cmd *cobra.Command, args []string) error {
 	if list, _ := cmd.Flags().GetBool("list"); list {
-		printAnalyzers()
+		printAnalyzers(cmd.OutOrStdout())
 		return nil
 	}
 	if len(args) == 0 {
-		_, _ = fmt.Fprintln(os.Stderr, "Please provide one of the following analyzers:")
-		_, _ = fmt.Fprintln(os.Stderr, "")
-		printAnalyzers()
+		_, _ = fmt.Fprint(cmd.OutOrStdout(), "Please provide one or more of the following analyzers:\n\n")
+		printAnalyzers(cmd.OutOrStderr())
 		return errors.New("no analyzer specified")
 	}
 
-	analyzer, ok := getAnalyzer(args[0])
-	if !ok {
-		_, _ = fmt.Fprintln(os.Stderr, "Please provide one of the following analyzers:")
-		_, _ = fmt.Fprintln(os.Stderr, "")
-		printAnalyzers()
-		return fmt.Errorf("invalid analyzer: %s", args[0])
+	var analyzerNames []string
+	var selected []*analyze.Analyzer
+	for _, s := range strings.Split(args[0], ",") {
+		if l := getAnalyzer(s); l != nil {
+			selected = append(selected, l)
+			analyzerNames = append(analyzerNames, l.Name)
+		} else {
+			_, _ = fmt.Fprint(cmd.OutOrStdout(), "Please provide a valid analyzer:\n\n")
+			printAnalyzers(cmd.OutOrStderr())
+			return fmt.Errorf("invalid analyzer name: %s", s)
+		}
 	}
 
 	pkgDirs, err := filterPackages(args[1:], cmd.Flags())
@@ -128,45 +141,57 @@ func doAnalyze(cmd *cobra.Command, args []string) error {
 	fix, _ := cmd.Flags().GetBool("fix")
 	args, _ = cmd.Flags().GetStringSlice("args")
 
-	results := map[string]analyze.Result{}
-	for _, pkgDir := range pkgDirs {
-		pkg, err := fleetpkg.Load(pkgDir)
-		if err != nil {
-			slog.Error("Failed to read package", slog.String("path", pkgDir), slog.String("error", err.Error()))
-			continue
-		}
-
-		ctx := analyze.Context{
-			Package: pkg,
-			Fix:     fix,
-			Args:    args,
-		}
-
-		if err = analyzer.Run(&ctx); err != nil {
-			slog.Error("Failed to run analyzer", slog.String("package", pkg.Manifest.Name), slog.String("analyzer", analyzer.Name), slog.String("error", err.Error()))
-			continue
-		}
-		results[pkg.Manifest.Name] = ctx.Result
+	report := analyze.Report{
+		Timestamp: time.Now(),
+		Analyzers: analyzerNames,
+		Reports:   map[string]analyze.PackageReport{},
 	}
 
-	if excludeEmpty, _ := cmd.Flags().GetBool("exclude-no-findings"); excludeEmpty {
-		for k, v := range results {
-			if len(v.Findings) == 0 && len(v.Fixes) == 0 {
-				delete(results, k)
+	for _, pkgDir := range pkgDirs {
+		manifest, err := fleetpkg.LoadManifest(pkgDir)
+		if err != nil {
+			slog.Error("Failed to read package manifest", slog.String("path", pkgDir), slog.String("error", err.Error()))
+			continue
+		}
+		pkgReport := analyze.PackageReport{
+			Analyzers: map[string]analyze.IssueReport{},
+		}
+		report.Packages = append(report.Packages, manifest.Name)
+
+		for _, a := range selected {
+			pkg, err := fleetpkg.Load(pkgDir, a.LoadMode)
+			if err != nil {
+				slog.Error("Failed to read package", slog.String("path", pkgDir), slog.String("error", err.Error()))
+				continue
+			}
+
+			ctx := analyze.Pass{
+				Package: pkg,
+				Fix:     fix,
+			}
+			if err = a.Run(&ctx); err != nil {
+				slog.Error("Failed to run linter", slog.String("package", pkg.Manifest.Name), slog.String("linter", a.Name), slog.String("error", err.Error()))
+				continue
+			}
+
+			pkgReport.Analyzers[a.Name] = analyze.IssueReport{
+				Issues: ctx.Issues,
 			}
 		}
+
+		report.Reports[manifest.Name] = pkgReport
 	}
 
 	output, _ := cmd.Flags().GetString("output")
 	switch output {
 	case analyzeFormatJSON:
-		err = analyze.JSON(os.Stdout, results)
-	case analyzeFormatText:
-		err = analyze.Text(os.Stdout, results)
+		err = analyze.PrintJSON(os.Stdout, &report)
 	case analyzeFormatTextColor:
+		err = analyze.PrintText(os.Stdout, &report, true)
+	case analyzeFormatText:
 		fallthrough
 	default:
-		err = analyze.ColorText(os.Stdout, results)
+		err = analyze.PrintText(os.Stdout, &report, false)
 	}
 
 	if err != nil {

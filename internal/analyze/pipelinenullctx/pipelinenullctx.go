@@ -34,26 +34,31 @@ import (
 const Name = "pipeline-null-ctx"
 
 var Analyzer = &analyze.Analyzer{
-	Name:        Name,
-	Description: "Find and fix ingest pipeline ctx null-safe deference issues",
-	CanFix:      true,
-	Run:         run,
+	Name:   Name,
+	Doc:    "Find and fix ingest pipeline ctx null-safe deference issues",
+	CanFix: true,
+	Run:    run,
 }
 
 var ctxMatchRe = regexp.MustCompile(`(^|[^.])(ctx)\?`)
 
-func run(ctx *analyze.Context) error {
-	for _, ds := range ctx.Package.DataStreams {
+func run(pass *analyze.Pass) error {
+	for _, ds := range pass.Package.DataStreams {
 		for _, pipeline := range ds.Pipelines {
 			for _, proc := range pipeline.Processors {
 				conditional, _ := proc.GetAttributeString("if")
 				if strings.Contains(conditional, "ctx?.") {
-					ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-						Pos:      analyze.MustPosFromPath(pipeline.Doc, fmt.Sprintf("%s.%s.if", proc.Node.GetPath(), proc.Type)),
-						Category: Name,
+					pos, err := analyze.NewYAMLPathPosition(pipeline.Doc.AST(), fmt.Sprintf("%s.%s.if", proc.Node.GetPath(), proc.Type))
+					if err != nil {
+						return err
+					}
+					pass.Issues = append(pass.Issues, analyze.Issue{
+						Analyzer: Name,
 						Message:  "Processor conditional uses unnecessary ctx null-safe deference",
+						Severity: analyze.SeverityWarn,
+						Pos:      pos,
 					})
-					if ctx.Fix {
+					if pass.Fix {
 						n, err := pipeline.Doc.GetNode(fmt.Sprintf("%s.%s.if", proc.Node.GetPath(), proc.Type))
 						if err != nil {
 							return err
@@ -70,21 +75,22 @@ func run(ctx *analyze.Context) error {
 						default:
 							return fmt.Errorf("unexpected node type: %T", n)
 						}
-						ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
-							Category: Name,
-							Message:  "Removed unnecessary ctx null-safe deference from processor conditional",
-						})
 					}
 				}
 				if proc.Type == "script" {
 					src, _ := proc.GetAttributeString("source")
 					if strings.Contains(src, "ctx?.") {
-						ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-							Pos:      analyze.MustPosFromPath(pipeline.Doc, proc.Node.GetPath()+".script.source"),
-							Category: Name,
+						pos, err := analyze.NewYAMLPathPosition(pipeline.Doc.AST(), proc.Node.GetPath()+".script.source")
+						if err != nil {
+							return err
+						}
+						pass.Issues = append(pass.Issues, analyze.Issue{
+							Analyzer: Name,
 							Message:  "Painless script uses unnecessary ctx null-safe deference",
+							Severity: analyze.SeverityWarn,
+							Pos:      pos,
 						})
-						if ctx.Fix {
+						if pass.Fix {
 							n, err := pipeline.Doc.GetNode(proc.Node.GetPath() + ".script.source")
 							if err != nil {
 								return err
@@ -92,20 +98,12 @@ func run(ctx *analyze.Context) error {
 							switch sn := n.(type) {
 							case *ast.StringNode:
 								sn.Value = ctxMatchRe.ReplaceAllString(sn.Value, "$1$2")
-								ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
-									Category: Name,
-									Message:  "Removed unnecessary ctx null-safe deference from painless script",
-								})
 							case *ast.LiteralNode:
 								s := n.String()
 								s = ctxMatchRe.ReplaceAllString(s, "$1$2")
 								if err = setLiteralNodeString(pipeline.Doc.AST(), proc.Node.GetPath()+".script.source", s); err != nil {
 									return err
 								}
-								ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
-									Category: Name,
-									Message:  "Removed unnecessary ctx null-safe deference from painless script",
-								})
 							default:
 								return fmt.Errorf("unexpected node type: %T", n)
 							}
@@ -114,7 +112,7 @@ func run(ctx *analyze.Context) error {
 				}
 			}
 
-			if ctx.Fix && pipeline.Doc.Modified() {
+			if pass.Fix && pipeline.Doc.Modified() {
 				if err := pipeline.Doc.WriteFile(); err != nil {
 					return err
 				}

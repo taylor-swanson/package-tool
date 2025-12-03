@@ -15,30 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Package analyze provides a framework for analyzing and modifying packages.
 package analyze
 
-import (
-	"strings"
+import "encoding/json"
 
-	"github.com/spf13/pflag"
+type Severity int
 
-	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
+const (
+	SeverityInfo Severity = iota
+	SeverityHint
+	SeverityWarn
+	SeverityError
+	SeverityDeprecated
 )
 
-var PathCleaner = strings.NewReplacer(".", "_", " ", "_", "@", "")
+func (s Severity) String() string {
+	switch s {
+	case SeverityInfo:
+		return "info"
+	case SeverityHint:
+		return "hint"
+	case SeverityWarn:
+		return "warn"
+	case SeverityError:
+		return "error"
+	case SeverityDeprecated:
+		return "deprecated"
+	}
 
-type Analyzer struct {
-	Name     string
-	Doc      string
-	CanFix   bool
-	Flags    pflag.FlagSet
-	Run      func(pass *Pass) error
-	LoadMode fleetpkg.LoadMode
+	return ""
 }
 
-type Pass struct {
-	Package *fleetpkg.Package
-	Fix     bool
-	Issues  []Issue
+func (s Severity) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
 }

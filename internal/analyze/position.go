@@ -15,30 +15,40 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Package analyze provides a framework for analyzing and modifying packages.
 package analyze
 
 import (
-	"strings"
+	"go/token"
 
-	"github.com/spf13/pflag"
-
-	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
+	"github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
 )
 
-var PathCleaner = strings.NewReplacer(".", "_", " ", "_", "@", "")
+// NewYAMLPathPosition creates a new position based on a YAML file and path.
+func NewYAMLPathPosition(f *ast.File, path string) (token.Position, error) {
+	p, err := yaml.PathString(path)
+	if err != nil {
+		return token.Position{}, err
+	}
 
-type Analyzer struct {
-	Name     string
-	Doc      string
-	CanFix   bool
-	Flags    pflag.FlagSet
-	Run      func(pass *Pass) error
-	LoadMode fleetpkg.LoadMode
+	n, err := p.FilterFile(f)
+	if err != nil {
+		return token.Position{}, err
+	}
+	if n == nil {
+		return token.Position{}, yaml.ErrNotFoundNode
+	}
+
+	return NewYAMLNodePosition(f, n), nil
 }
 
-type Pass struct {
-	Package *fleetpkg.Package
-	Fix     bool
-	Issues  []Issue
+// NewYAMLNodePosition creates a new position based on a YAML file and node.
+func NewYAMLNodePosition(f *ast.File, node ast.Node) token.Position {
+	t := node.GetToken()
+
+	return token.Position{
+		Filename: f.Name,
+		Line:     t.Position.Line,
+		Column:   t.Position.Column,
+	}
 }

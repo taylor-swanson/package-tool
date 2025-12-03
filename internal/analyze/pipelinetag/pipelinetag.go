@@ -32,10 +32,10 @@ import (
 const Name = "pipeline-tag"
 
 var Analyzer = &analyze.Analyzer{
-	Name:        Name,
-	Description: "Find and fix ingest pipeline tag issues",
-	CanFix:      true,
-	Run:         run,
+	Name:   Name,
+	Doc:    "Find and fix ingest pipeline tag issues",
+	CanFix: true,
+	Run:    run,
 }
 
 type processorNode struct {
@@ -51,8 +51,8 @@ func (p *processorNode) ParentProcessor() *fleetpkg.Processor {
 	return nil
 }
 
-func run(ctx *analyze.Context) error {
-	for _, ds := range ctx.Package.DataStreams {
+func run(pass *analyze.Pass) error {
+	for _, ds := range pass.Package.DataStreams {
 		for _, pipeline := range ds.Pipelines {
 			seen := map[string]*processorNode{}
 
@@ -61,12 +61,14 @@ func run(ctx *analyze.Context) error {
 					Processor: proc,
 				}
 
-				if err := processTag(ctx, pipeline, &node, seen); err != nil {
+				procIssues, err := processTag(pipeline, &node, seen, pass.Fix)
+				pass.Issues = append(pass.Issues, procIssues...)
+				if err != nil {
 					return err
 				}
 			}
 
-			if ctx.Fix && pipeline.Doc.Modified() {
+			if pass.Fix && pipeline.Doc.Modified() {
 				if err := pipeline.Doc.WriteFile(); err != nil {
 					return err
 				}
@@ -77,7 +79,8 @@ func run(ctx *analyze.Context) error {
 	return nil
 }
 
-func processTag(ctx *analyze.Context, pipeline *fleetpkg.Pipeline, node *processorNode, seen map[string]*processorNode) error {
+func processTag(pipeline *fleetpkg.Pipeline, node *processorNode, seen map[string]*processorNode, fix bool) ([]analyze.Issue, error) {
+	var issues []analyze.Issue
 	var invalid bool
 	var err error
 
@@ -85,43 +88,39 @@ func processTag(ctx *analyze.Context, pipeline *fleetpkg.Pipeline, node *process
 	tag, ok := node.Processor.Attributes["tag"].(string)
 	if ok {
 		if tag == "" {
-			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-				Pos:      analyze.NewPos(node.Processor.Node, pipeline.Path()),
-				Category: Name,
+			issues = append(issues, analyze.Issue{
+				Analyzer: Name,
 				Message:  fmt.Sprintf("Empty tag on %s processor at %s", node.Processor.Type, procPath),
+				Severity: analyze.SeverityError,
+				Pos:      analyze.NewYAMLNodePosition(pipeline.Doc.AST(), node.Processor.Node),
 			})
 			invalid = true
 		} else if _, dup := seen[tag]; dup {
-			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-				Pos:      analyze.NewPos(node.Processor.Node, pipeline.Path()),
-				Category: Name,
+			issues = append(issues, analyze.Issue{
+				Analyzer: Name,
 				Message:  fmt.Sprintf("Duplicated tag on %s processor at %s", node.Processor.Type, procPath),
+				Severity: analyze.SeverityError,
+				Pos:      analyze.NewYAMLNodePosition(pipeline.Doc.AST(), node.Processor.Node),
 			})
 			invalid = true
 
 		}
 	} else {
-		ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-			Pos:      analyze.NewPos(node.Processor.Node, pipeline.Path()),
-			Category: Name,
+		issues = append(issues, analyze.Issue{
+			Analyzer: Name,
 			Message:  fmt.Sprintf("Missing or invalid tag on %s processor at %s", node.Processor.Type, procPath),
+			Severity: analyze.SeverityError,
+			Pos:      analyze.NewYAMLNodePosition(pipeline.Doc.AST(), node.Processor.Node),
 		})
 		invalid = true
 	}
 
-	if invalid && ctx.Fix {
+	if invalid && fix {
 		if tag, err = generateTag(node.Processor, node.ParentProcessor()); err != nil {
-			return err
+			return issues, err
 		}
-		modified, err := pipeline.Doc.SetKeyValue(node.Processor.Node.GetPath(), "tag", tag, yamledit.IndexPrepend)
-		if err != nil {
-			return err
-		}
-		if modified {
-			ctx.Result.Fixes = append(ctx.Result.Fixes, analyze.Fix{
-				Category: Name,
-				Message:  fmt.Sprintf("Generated tag %q for %s processor at %s", tag, node.Processor.Type, procPath),
-			})
+		if _, err := pipeline.Doc.SetKeyValue(fmt.Sprintf("%s.%s", node.Processor.Node.GetPath(), node.Processor.Type), "tag", tag, yamledit.IndexPrepend); err != nil {
+			return issues, err
 		}
 	}
 
@@ -132,12 +131,14 @@ func processTag(ctx *analyze.Context, pipeline *fleetpkg.Pipeline, node *process
 			Processor: onFailProc,
 			Parent:    node,
 		}
-		if err = processTag(ctx, pipeline, onFailProcNode, seen); err != nil {
-			return err
+		procIssues, err := processTag(pipeline, onFailProcNode, seen, fix)
+		issues = append(issues, procIssues...)
+		if err != nil {
+			return issues, err
 		}
 	}
 
-	return nil
+	return issues, nil
 }
 
 func generateTag(proc, parent *fleetpkg.Processor) (string, error) {

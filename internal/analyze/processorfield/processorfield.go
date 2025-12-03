@@ -20,6 +20,8 @@
 package processorfield
 
 import (
+	"errors"
+
 	"github.com/taylor-swanson/package-tool/internal/analyze"
 	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
 )
@@ -27,9 +29,9 @@ import (
 const Name = "processor-field"
 
 var Analyzer = &analyze.Analyzer{
-	Name:        Name,
-	Description: "Find usages of fields in ingest pipeline processors",
-	Run:         run,
+	Name: Name,
+	Doc:  "Find usages of fields in ingest pipeline processors",
+	Run:  run,
 }
 
 var findKeys = []string{
@@ -38,19 +40,24 @@ var findKeys = []string{
 	"copy_from",
 }
 
-func run(ctx *analyze.Context) error {
-	if len(ctx.Args) == 0 {
-		return nil
-	}
-	field := ctx.Args[0]
+var fieldName string
 
-	for _, ds := range ctx.Package.DataStreams {
+func init() {
+	Analyzer.Flags.StringVar(&fieldName, "name", "", "the name of the field")
+}
+
+func run(pass *analyze.Pass) error {
+	if fieldName == "" {
+		return errors.New("field name is required")
+	}
+
+	for _, ds := range pass.Package.DataStreams {
 		for _, pipeline := range ds.Pipelines {
 			for _, proc := range pipeline.Processors {
-				findInProcessor(ctx, pipeline, proc, field)
+				pass.Issues = append(pass.Issues, findInProcessor(pipeline, proc)...)
 			}
 			for _, proc := range pipeline.OnFailure {
-				findInProcessor(ctx, pipeline, proc, field)
+				pass.Issues = append(pass.Issues, findInProcessor(pipeline, proc)...)
 			}
 		}
 	}
@@ -58,15 +65,21 @@ func run(ctx *analyze.Context) error {
 	return nil
 }
 
-func findInProcessor(ctx *analyze.Context, pipeline *fleetpkg.Pipeline, proc *fleetpkg.Processor, field string) {
+func findInProcessor(pipeline *fleetpkg.Pipeline, proc *fleetpkg.Processor) []analyze.Issue {
+	var issues []analyze.Issue
+
 	for _, k := range findKeys {
-		if s, ok := proc.Attributes[k]; ok && field == s {
-			ctx.Result.Findings = append(ctx.Result.Findings, analyze.Finding{
-				Pos:      analyze.NewPos(proc.Node, pipeline.Path()),
-				Category: Name,
+		if s, ok := proc.Attributes[k]; ok && fieldName == s {
+			issues = append(issues, analyze.Issue{
+				Analyzer: Name,
 				Message:  "Found usage",
+				Severity: analyze.SeverityInfo,
+				Pos:      analyze.NewYAMLNodePosition(pipeline.Doc.AST(), proc.Node),
+				Related:  nil,
 			})
 			break
 		}
 	}
+
+	return issues
 }

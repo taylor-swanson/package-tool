@@ -21,125 +21,148 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/fatih/color"
 )
 
-func JSON(w io.Writer, results map[string]Result) error {
-	type Report struct {
-		Time    string            `json:"time"`
-		Results map[string]Result `json:"results,omitempty"`
-	}
-
-	r := Report{
-		Time:    time.Now().Format(time.RFC3339),
-		Results: results,
-	}
-
+func PrintJSON(w io.Writer, report *Report) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	enc.SetEscapeHTML(false)
 
-	return enc.Encode(r)
+	return enc.Encode(report)
 }
 
-func Text(w io.Writer, results map[string]Result) error {
-	return text(w, results, false)
-}
-
-func ColorText(w io.Writer, results map[string]Result) error {
-	return text(w, results, true)
-}
-
-func text(w io.Writer, results map[string]Result, wantColor bool) error {
+func PrintText(w io.Writer, report *Report, wantColor bool) error {
 	red := color.New(color.FgRed)
+	yellow := color.New(color.FgYellow)
 	green := color.New(color.FgGreen)
 	bold := color.New(color.Bold)
+
 	if !wantColor {
 		red.DisableColor()
+		yellow.DisableColor()
 		green.DisableColor()
 		bold.DisableColor()
 	}
 
-	var keys []string
-	for k := range results {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	var totalIssues int
 
 	var err error
-	for _, k := range keys {
-		if _, err = bold.Fprintf(w, "-- %s %s\n", k, strings.Repeat("-", 76-len(k))); err != nil {
+	if _, err = bold.Fprint(w, "Time:"); err != nil {
+		return err
+	}
+	if _, err = fmt.Fprintf(w, " %s\n\n", report.Timestamp.Format(time.RFC3339)); err != nil {
+		return err
+	}
+	if _, err = bold.Fprintln(w, "Analyzers:"); err != nil {
+		return err
+	}
+	for _, name := range report.Analyzers {
+		if _, err = fmt.Fprintf(w, "  - %s\n", name); err != nil {
+			return err
+		}
+	}
+	if _, err = fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err = bold.Fprintln(w, "Packages:"); err != nil {
+		return err
+	}
+	for _, name := range report.Packages {
+		if _, err = fmt.Fprintf(w, "  - %s\n", name); err != nil {
+			return err
+		}
+	}
+	if _, err = fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err = bold.Fprintln(w, "Reports:"); err != nil {
+		return err
+	}
+	for _, pkgName := range report.Packages {
+		if _, err = bold.Fprintf(w, "-- %s %s\n\n", pkgName, strings.Repeat("-", 76-len(pkgName))); err != nil {
 			return err
 		}
 
-		result := results[k]
+		// Per-analyzer issues
 
-		if _, err = bold.Fprintln(w, "  Findings"); err != nil {
-			return err
-		}
-		if len(result.Findings) > 0 {
-			for _, d := range result.Findings {
-				if _, err = fmt.Fprint(w, "    - "); err != nil {
+		for _, analyzerName := range report.Analyzers {
+			r := report.Reports[pkgName].Analyzers[analyzerName]
+			if len(r.Issues) == 0 {
+				continue
+			}
+
+			if _, err = bold.Fprintln(w, analyzerName); err != nil {
+				return err
+			}
+
+			for _, issue := range r.Issues {
+				if _, err = fmt.Fprint(w, "  - "); err != nil {
 					return err
 				}
-				if _, err = red.Fprintf(w, "%s", d.Message); err != nil {
-					return err
-				}
-				if _, err = fmt.Fprintf(w, " (%s)\n", d.Category); err != nil {
-					return err
-				}
-				if d.Pos != nil && d.Pos.File != "" {
-					if _, err = bold.Fprintf(w, "      %s\n", d.Pos); err != nil {
+
+				switch issue.Severity {
+				case SeverityHint:
+					if _, err = fmt.Fprint(w, "HINT: "+issue.Message); err != nil {
+						return err
+					}
+				case SeverityInfo:
+					if _, err = fmt.Fprint(w, "INFO: "+issue.Message); err != nil {
+						return err
+					}
+				case SeverityWarn:
+					if _, err = yellow.Fprint(w, "WARN: "+issue.Message); err != nil {
+						return err
+					}
+				case SeverityError:
+					if _, err = red.Fprintf(w, "ERROR: "+issue.Message); err != nil {
+						return err
+					}
+				case SeverityDeprecated:
+					if _, err = yellow.Fprintf(w, "DEPRECATED: "+issue.Message); err != nil {
 						return err
 					}
 				}
-				if len(d.Related) > 0 {
-					for _, r := range d.Related {
-						if _, err = fmt.Fprint(w, "      "); err != nil {
-							return err
-						}
-						if _, err = red.Fprintf(w, "%s", r.Message); err != nil {
-							return err
-						}
-						if r.Pos != nil && r.Pos.File != "" {
-							if _, err = bold.Fprintf(w, " %s", r.Pos); err != nil {
-								return err
-							}
-						}
-						if _, err = fmt.Println(); err != nil {
-							return err
-						}
-					}
+
+				if _, err = fmt.Fprintf(w, " (%s)\n", issue.Analyzer); err != nil {
+					return err
 				}
+
+				if _, err = bold.Fprintf(w, "    %s\n", issue.Pos); err != nil {
+					return err
+				}
+			}
+
+			if _, err = fmt.Fprintln(w, ""); err != nil {
+				return err
+			}
+		}
+
+		// Issue totals
+
+		var pkgTotal int
+		for _, analyzerName := range report.Analyzers {
+			pkgTotal += len(report.Reports[pkgName].Analyzers[analyzerName].Issues)
+		}
+		totalIssues += pkgTotal
+		if pkgTotal > 0 {
+			if _, err = red.Fprintf(w, "%d issues:\n", pkgTotal); err != nil {
+				return err
 			}
 		} else {
-			if _, err = green.Fprintln(w, "    No findings"); err != nil {
+			if _, err = green.Fprintln(w, "No issues:"); err != nil {
 				return err
 			}
 		}
-
-		if len(result.Fixes) > 0 {
-			if _, err = bold.Fprintln(w, "  Fixes"); err != nil {
+		for _, analyzerName := range report.Analyzers {
+			if _, err = fmt.Fprintf(w, "  - %s: %d\n", analyzerName, len(report.Reports[pkgName].Analyzers[analyzerName].Issues)); err != nil {
 				return err
 			}
-			for _, d := range result.Fixes {
-				if _, err = fmt.Fprint(w, "    - "); err != nil {
-					return err
-				}
-				if _, err = green.Fprintf(w, "%s", d.Message); err != nil {
-					return err
-				}
-				if _, err = fmt.Fprintf(w, " (%s)\n", d.Category); err != nil {
-					return err
-				}
-			}
 		}
-
-		if _, err = fmt.Fprintln(w); err != nil {
+		if _, err = fmt.Fprintln(w, ""); err != nil {
 			return err
 		}
 	}
