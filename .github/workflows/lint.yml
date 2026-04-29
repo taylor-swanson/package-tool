@@ -53,4 +53,4 @@ jobs:
           go-version: stable
 
       - name: Check headers
-        run: go run github.com/elastic/go-licenser@latest -d
+        run: go run github.com/elastic/go-licenser@v0.4.2 -d -license ASL2-Short
