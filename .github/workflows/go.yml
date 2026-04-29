@@ -27,7 +27,7 @@ jobs:
         run: go mod tidy && git diff --exit-code
 
       - name: license header
-        run: go run github.com/elastic/go-licenser@v0.4.1 -d
+        run: go run github.com/elastic/go-licenser@v0.4.2 -d -license ASL2-Short
   test:
     name: test
     runs-on: ubuntu-latest
