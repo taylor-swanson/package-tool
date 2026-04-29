@@ -17,7 +17,7 @@ func newCmdVersion() *cobra.Command {
 		Use:   "version",
 		Short: "Report version information",
 		Run: func(_ *cobra.Command, _ []string) {
-			fmt.Printf("package-tool version %s [build %v] [commit %v]\n", version.Version, version.Build, version.Commit)
+			fmt.Printf("%s version %s [commit %v]\n", version.Name, version.Version, version.Commit)
 		},
 		SilenceUsage:      true,
 		SilenceErrors:     true,
