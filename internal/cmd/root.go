@@ -13,12 +13,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/taylor-swanson/package-tool/internal/version"
 	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
 )
 
 func Execute() error {
 	cmd := cobra.Command{
-		Use:   "package-tool",
+		Use:   version.Name,
 		Short: "Tools for Elastic integration packages",
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			level := slog.LevelInfo

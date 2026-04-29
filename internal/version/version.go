@@ -5,8 +5,26 @@
 // Package version provides version information.
 package version
 
+import "runtime/debug"
+
 var (
-	Build   = "dev"
 	Version = "none"
-	Commit  = "none"
+	Commit  = "unknown"
 )
+
+const Name = "package-tool"
+
+func init() {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return
+	}
+
+	Version = info.Main.Version
+	for _, setting := range info.Settings {
+		if setting.Key == "vcs.revision" {
+			Commit = setting.Value
+			break
+		}
+	}
+}
