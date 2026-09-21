@@ -193,9 +193,5 @@ func doAnalyze(cmd *cobra.Command, args []string) error {
 		err = analyze.PrintText(os.Stdout, &report, false)
 	}
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

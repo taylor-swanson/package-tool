@@ -1,6 +1,6 @@
 module github.com/taylor-swanson/package-tool
 
-go 1.25.0
+go 1.27
 
 require (
 	github.com/fatih/color v1.19.0

@@ -128,6 +128,17 @@ func (p *Processor) GetAttributeString(key string) (string, bool) {
 	return v, true
 }
 
+// GetAttributeStringOr gets a string attribute of the processor or a default
+// value if the attribute does not exist.
+func (p *Processor) GetAttributeStringOr(key, def string) string {
+	v, ok := p.Attributes[key].(string)
+	if !ok {
+		return def
+	}
+
+	return v
+}
+
 // GetAttributeFloat gets a float attribute of the processor.
 func (p *Processor) GetAttributeFloat(key string) (float64, bool) {
 	v, ok := p.Attributes[key].(float64)

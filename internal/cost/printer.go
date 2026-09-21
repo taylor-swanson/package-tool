@@ -1,0 +1,18 @@
+package cost
+
+import (
+	"encoding/json"
+	"io"
+)
+
+func PrintJSON(w io.Writer, report *Report) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+
+	return enc.Encode(report)
+}
+
+func PrintText(w io.Writer, report *Report, wantColor bool) error {
+	return nil
+}
