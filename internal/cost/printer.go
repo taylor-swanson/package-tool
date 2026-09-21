@@ -2,6 +2,7 @@ package cost
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 )
 
@@ -14,5 +15,5 @@ func PrintJSON(w io.Writer, report *Report) error {
 }
 
 func PrintText(w io.Writer, report *Report, wantColor bool) error {
-	return nil
+	return errors.New("text output not yet implemented")
 }

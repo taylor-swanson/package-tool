@@ -1,10 +1,14 @@
 package cost
 
 import (
+	"math"
 	"slices"
+	"strings"
 
 	"github.com/taylor-swanson/package-tool/pkg/fleetpkg"
 )
+
+var wsReplacer = strings.NewReplacer(" ", "", "\n", "", "\t", "", "\r", "")
 
 func EstimateProcessor(processor *fleetpkg.Processor) ProcessorReport {
 	report := ProcessorReport{
@@ -23,10 +27,26 @@ func EstimateProcessor(processor *fleetpkg.Processor) ProcessorReport {
 		report.Cost = 5
 	case "grok":
 		report.Cost = 7
+		if raw, ok := processor.GetAttribute("patterns"); ok {
+			if rawPatterns, ok := raw.([]any); ok {
+				for _, rawPattern := range rawPatterns {
+					if pattern, ok := rawPattern.(string); ok {
+						report.Cost += stringCostByBytes(pattern)
+					}
+				}
+			}
+		}
 	case "geoip":
 		report.Cost = 10
 	case "script":
 		report.Cost = 10
+		if source := processor.GetAttributeStringOr("source", ""); source != "" {
+			report.Cost += stringCostByBytes(source)
+		}
+	}
+
+	if conditional := processor.GetAttributeStringOr("if", ""); conditional != "" {
+		report.Cost += stringCostByBytes(conditional)
 	}
 
 	return report
@@ -74,4 +94,8 @@ func EstimatePackage(pkg *fleetpkg.Package, dataStreamFilters ...string) Package
 	}
 
 	return report
+}
+
+func stringCostByBytes(s string) int {
+	return int(math.Ceil(float64(len(wsReplacer.Replace(s))) * 0.1))
 }

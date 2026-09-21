@@ -49,17 +49,17 @@ func doCost(cmd *cobra.Command, args []string) error {
 		report.Reports[pkg.Manifest.Name] = pkgReport
 	}
 
-	output, _ := cmd.Flags().GetString("output")
-	switch output {
-	case analyzeFormatJSON:
-		err = cost.PrintJSON(os.Stdout, &report)
-	case analyzeFormatTextColor:
-		err = cost.PrintText(os.Stdout, &report, true)
-	case analyzeFormatText:
-		fallthrough
-	default:
-		err = cost.PrintText(os.Stdout, &report, false)
-	}
+	//output, _ := cmd.Flags().GetString("output")
+	//switch output {
+	//case analyzeFormatJSON:
+	//	err = cost.PrintJSON(os.Stdout, &report)
+	//case analyzeFormatTextColor:
+	//	err = cost.PrintText(os.Stdout, &report, true)
+	//case analyzeFormatText:
+	//	fallthrough
+	//default:
+	//	err = cost.PrintText(os.Stdout, &report, false)
+	//}
 
-	return err
+	return cost.PrintJSON(os.Stdout, &report)
 }
