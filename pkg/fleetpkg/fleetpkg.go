@@ -52,8 +52,7 @@ func (m *Manifest) Path() string { return m.Doc.Filename() }
 type BuildManifest struct {
 	Dependencies struct {
 		ECS struct {
-			Reference      string `yaml:"reference"`
-			ImportMappings *bool  `yaml:"import_mappings,omitempty"`
+			Reference string `yaml:"reference"`
 		} `yaml:"ecs"`
 	} `yaml:"dependencies"`
 

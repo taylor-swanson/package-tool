@@ -42,10 +42,9 @@ func Load(dir string, mode LoadMode) (*Package, error) {
 	// Build manifest (_dev/build/build.yml)
 
 	var buildManifest BuildManifest
-	if _, err := yamledit.ParseDocumentFile(filepath.Join(dir, "_dev", "build", "build.yml"), &buildManifest); err != nil {
-		return nil, err
+	if _, err := yamledit.ParseDocumentFile(filepath.Join(dir, "_dev", "build", "build.yml"), &buildManifest); err == nil {
+		pkg.BuildManifest = &buildManifest
 	}
-	pkg.BuildManifest = &buildManifest
 
 	// -------------------------------------------------------------------------
 	// Data Streams
